@@ -38,5 +38,5 @@ abstract public class Protocol implements Iterable<byte[]> {
     public static final int DEFAULT_PIECE_SIZE = 1 << 16;
     public static final HashType DEFAULT_HASH_TYPE = HashType.SHA1;
 
-    abstract public HashType getHashType();
+    abstract public MessageType getMessageType();
 }

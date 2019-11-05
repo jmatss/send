@@ -5,31 +5,25 @@ import java.util.Iterator;
 
 public class TextProtocol extends Protocol {
     private final MessageType messageType = MessageType.Text;
-    private final HashType hashType;
     private final String text;
     private final int pieceSize;
 
-    TextProtocol(String text, int pieceSize, HashType hashType) {
+    TextProtocol(String text, int pieceSize) {
         if (pieceSize > Protocol.MAX_PIECE_SIZE)
             throw new IllegalArgumentException(String.format("pieceSize > Protocol.MAX_PIECE_SIZE: (%d > %d)",
                     pieceSize, Protocol.MAX_PIECE_SIZE));
 
         this.text = text;
         this.pieceSize = pieceSize;
-        this.hashType = hashType;
-    }
-
-    TextProtocol(String text, int pieceSize) {
-        this(text, pieceSize, Protocol.DEFAULT_HASH_TYPE);
     }
 
     TextProtocol(String text) {
-        this(text, Protocol.DEFAULT_PIECE_SIZE, Protocol.DEFAULT_HASH_TYPE);
+        this(text, Protocol.DEFAULT_PIECE_SIZE);
     }
 
     @Override
-    public HashType getHashType() {
-        return this.hashType;
+    public MessageType getMessageType() {
+        return this.messageType;
     }
 
     public String getText() {
