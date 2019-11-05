@@ -24,7 +24,7 @@ public class TextProtocol extends Protocol {
     }
 
     TextProtocol(String text) {
-        this(text, Protocol.MAX_PIECE_SIZE, Protocol.DEFAULT_HASH_TYPE);
+        this(text, Protocol.DEFAULT_PIECE_SIZE, Protocol.DEFAULT_HASH_TYPE);
     }
 
     @Override
