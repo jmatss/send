@@ -2,9 +2,6 @@ package com.github.jmatss.send.protocol;
 
 import com.github.jmatss.send.HashType;
 import com.github.jmatss.send.MessageType;
-import com.github.jmatss.send.protocol.FileProtocol;
-import com.github.jmatss.send.protocol.PFile;
-import com.github.jmatss.send.protocol.Protocol;
 import org.junit.jupiter.api.Test;
 
 import java.io.File;
@@ -18,18 +15,19 @@ import static org.junit.jupiter.api.Assertions.*;
 
 public class FileProtocolTest {
     @Test
-    public void testOneFileOnePacketNoHash() {
+    public void test_OneFile_OnePacket_DefaultFileHash_NoPieceHash() {
         String path = "test_data1.txt";
         String name = path;
-        TestFile t = new TestFile(name, path);
+        TestFile t = new TestFile(name, path, Protocol.DEFAULT_HASH_TYPE, HashType.NONE);
 
         byte[] file_info_expected = ByteBuffer
-                .allocate(1 + 4 + t.pathBytes.length + 8 + 1)
+                .allocate(1 + 4 + t.pathBytes.length + 8 + 1 + 20)
                 .put((byte) MessageType.FILE_INFO.value())
                 .putInt(t.pathBytes.length)
                 .put(t.pathBytes)
                 .putLong(t.length)
-                .put((byte) t.hashType.value())
+                .put((byte) t.fileHashType.value())
+                .put(toDigest("1FE1AE26BF167A668B9EBE0BCC70291146AC7957"))
                 .array();
 
         byte[] packet_expected = ByteBuffer
@@ -38,7 +36,7 @@ public class FileProtocolTest {
                 .putInt(0)
                 .putInt(t.content.length)
                 .put(t.content)
-                .put((byte) t.hashType.value())
+                .put((byte) t.pieceHashType.value())
                 .array();
 
         TestFile[] ts = {t};
@@ -46,19 +44,20 @@ public class FileProtocolTest {
     }
 
     @Test
-    public void testOneFileTwoPacketsNoHash() {
+    public void test_OneFile_TwoPackets_DefaultFileHash_NoPieceHash() {
         String path = "test_data1.txt";
         String name = path;
-        TestFile t = new TestFile(name, path);
+        TestFile t = new TestFile(name, path, Protocol.DEFAULT_HASH_TYPE, HashType.NONE);
         int pieceSize = (int) (t.length / 2);
 
         byte[] file_info_expected = ByteBuffer
-                .allocate(1 + 4 + t.pathBytes.length + 8 + 1)
+                .allocate(1 + 4 + t.pathBytes.length + 8 + 1 + 20)
                 .put((byte) MessageType.FILE_INFO.value())
                 .putInt(t.pathBytes.length)
                 .put(t.pathBytes)
                 .putLong(t.length)
-                .put((byte) t.hashType.value())
+                .put((byte) t.fileHashType.value())
+                .put(toDigest("1FE1AE26BF167A668B9EBE0BCC70291146AC7957"))
                 .array();
 
         List<byte[]> packets_expected = new ArrayList<>(2);
@@ -69,7 +68,7 @@ public class FileProtocolTest {
                     .putInt(i)
                     .putInt(pieceSize)
                     .put(Arrays.copyOfRange(t.content, i * pieceSize, (i + 1) * pieceSize))
-                    .put((byte) t.hashType.value())
+                    .put((byte) t.pieceHashType.value())
                     .array());
         }
 
@@ -85,6 +84,15 @@ public class FileProtocolTest {
         assertThrows(Exception.class, () -> new FileProtocol(names, paths));
     }
 
+    private byte[] toDigest(String s) {
+        byte[] res = new byte[s.length() / 2];
+        for (int i = 0; i < s.length(); i += 2) {
+            res[i / 2] = (byte) ((Character.digit(s.charAt(i), 16) << 4)
+                    + Character.digit(s.charAt(i + 1), 16));
+        }
+        return res;
+    }
+
     private void runTest(TestFile[] ts, List<byte[]> file_infos_expected, List<byte[]> packets_expected,
                          int pieceSize) {
         if (ts.length == 0)
@@ -98,13 +106,17 @@ public class FileProtocolTest {
             paths[k] = t.path;
         }
 
+        // TODO: do this better
+        HashType fileHashType = ts[0].fileHashType;
+        HashType pieceHashType = ts[0].pieceHashType;
+
         try {
             int i = 0, j = 0;
-            for (PFile pFile : new FileProtocol(names, paths).iter()) {
+            for (PFile pFile : new FileProtocol(names, paths, fileHashType).iter()) {
                 if (i >= file_infos_expected.size()) break;
                 assertArrayEquals(file_infos_expected.get(i), pFile.getFileInfo());
                 j = 0;
-                for (byte[] packet_got : pFile.packetIterator(pieceSize)) {
+                for (byte[] packet_got : pFile.packetIterator(pieceSize, pieceHashType)) {
                     if (j >= packets_expected.size()) break;
                     assertArrayEquals(packets_expected.get(j), packet_got);
                     j++;
@@ -148,17 +160,19 @@ public class FileProtocolTest {
     // Helper class that contains info of a file that is to be used in a test.
     // this.path == path relative to test/java/resources
     private class TestFile {
-        HashType hashType;
+        HashType fileHashType;
+        HashType pieceHashType;
         String name;
         String path;
         byte[] pathBytes;
         byte[] content;
         long length;
 
-        TestFile(String name, String path, HashType hashType) {
+        TestFile(String name, String path, HashType fileHashType, HashType pieceHashType) {
             this.name = name;
-            this.hashType = hashType;
             this.path = getClass().getClassLoader().getResource(path).getFile();
+            this.fileHashType = fileHashType;
+            this.pieceHashType = pieceHashType;
 
             try {
                 this.pathBytes = path.getBytes(Protocol.ENCODING);
@@ -173,10 +187,6 @@ public class FileProtocolTest {
             }
 
             assertNotEquals(0, this.length, "Read 0 bytes from test file.");
-        }
-
-        TestFile(String name, String path) {
-            this(name, path, HashType.NONE);
         }
     }
 }
