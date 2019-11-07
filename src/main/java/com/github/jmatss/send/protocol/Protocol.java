@@ -10,12 +10,14 @@ import java.util.Iterator;
 *** Format ***
 TODO:
     if (MessageType::PUBLISH && SubMessageType::TEXT):
-        Topic Length (1 byte)
+        MessageType (1 byte)
+        | Topic Length (1 byte)
         | Topic ("Topic Length" bytes)
         | SubMessageType (1 byte)       //
         | Random ID Number (8 bytes)    // unique
     if (MessageType::PUBLISH && SubMessageType::FILE):
-        Topic Length (1 byte)
+        MessageType (1 byte)
+        | Topic Length (1 byte)
         | Topic ("Topic Length" bytes)
         | SubMessageType (1 byte)
         | Random ID Number (8 bytes) (unique)

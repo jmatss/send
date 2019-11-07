@@ -34,6 +34,10 @@ public class TextProtocol extends Protocol {
         return this.text;
     }
 
+    /**
+     * Iterator over all files(PFiles)
+     * @return an iterator over all packets to
+     */
     @Override
     public Iterable<byte[]> iter() {
         return () -> new Iterator<byte[]>() {
