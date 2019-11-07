@@ -1,7 +1,7 @@
 package com.github.jmatss.send;
 
 public enum HashType {
-    NONE(0, null), SHA1(1, "SHA-1");
+    NONE(0, null), SHA1(1, "SHA-1"), MD5(2, "MD5");
     private final int i;
     private final String hash;
 
