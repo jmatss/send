@@ -72,6 +72,14 @@ public class FileProtocolTest {
         runTest(ts, file_info_expected, packets_expected, pieceSize);
     }
 
+    @Test
+    public void testExceptionIfFileDoesntExist() {
+        String[] paths = {"this_file_doesnt_exist.abc"};
+        String[] names = paths;
+
+        assertThrows(Exception.class, () -> new FileProtocol(names, paths));
+    }
+
     private void runTest(TestFile[] ts, List<byte[]> file_infos_expected, List<byte[]> packets_expected,
                          int pieceSize) {
         if (ts.length == 0)

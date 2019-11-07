@@ -18,6 +18,9 @@ public class PFile {
     private byte[] digest;
 
     PFile(String name, String path, HashType hashType) throws IOException, NoSuchAlgorithmException {
+        if (!new File(path).exists())
+            throw new FileNotFoundException("Unable to find file " + path);
+
         this.name = name;
         this.path = path;
         this.hashType = hashType;
