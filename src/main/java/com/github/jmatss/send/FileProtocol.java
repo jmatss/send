@@ -11,6 +11,9 @@ public class FileProtocol extends Protocol {
     private HashType hashType;
 
     FileProtocol(PFile[] files, int pieceSize, HashType hashType) {
+        if (files.length == 0)
+            throw new IllegalArgumentException("Not allowed to create a FileProtocol with zero files");
+
         initFileProtocol(files, pieceSize, hashType);
     }
 
@@ -22,19 +25,27 @@ public class FileProtocol extends Protocol {
         this(files, Protocol.DEFAULT_PIECE_SIZE, Protocol.DEFAULT_HASH_TYPE);
     }
 
-    FileProtocol(String[] paths, HashType hashType) throws IOException, NoSuchAlgorithmException {
+    FileProtocol(String[] names, String[] paths, int pieceSize, HashType hashType) throws IOException, NoSuchAlgorithmException {
         if (paths.length == 0)
-            throw new IllegalArgumentException("Not allowed to create a FileProtocol of zero paths");
+            throw new IllegalArgumentException("Not allowed to create a FileProtocol with zero paths");
+        else if (names.length == 0)
+            throw new IllegalArgumentException("Not allowed to create a FileProtocol with zero names");
+        else if (paths.length != names.length)
+            throw new IllegalArgumentException("Length of paths and names differ");
 
         PFile[] files = new PFile[paths.length];
         for (int i = 0; i < paths.length; i++)
-            files[i] = new PFile(paths[i], hashType);
+            files[i] = new PFile(names[i], paths[i], hashType);
 
-        initFileProtocol(files, Protocol.DEFAULT_PIECE_SIZE, Protocol.DEFAULT_HASH_TYPE);
+        initFileProtocol(files, pieceSize, hashType);
     }
 
-    FileProtocol(String... paths) throws IOException, NoSuchAlgorithmException {
-        this(paths, HashType.NONE);
+    FileProtocol(String[] names, String[] paths, int pieceSize) throws IOException, NoSuchAlgorithmException {
+        this(names, paths, pieceSize, HashType.NONE);
+    }
+
+    FileProtocol(String[] names, String[] paths) throws IOException, NoSuchAlgorithmException {
+        this(names, paths, Protocol.DEFAULT_PIECE_SIZE, HashType.NONE);
     }
 
     private void initFileProtocol(PFile[] files, int pieceSize, HashType hashType) {

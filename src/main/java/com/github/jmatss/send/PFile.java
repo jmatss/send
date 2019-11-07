@@ -12,17 +12,20 @@ public class PFile {
     public static final int BUFFER_SIZE = 1 << 16;
     private static final Logger LOGGER = Logger.getLogger(PFile.class.getName());
 
+    private final String name;
     private final String path;
     private HashType hashType;
     private byte[] digest;
 
-    PFile(String path, HashType hashType) throws IOException, NoSuchAlgorithmException {
+    PFile(String name, String path, HashType hashType) throws IOException, NoSuchAlgorithmException {
+        this.name = name;
         this.path = path;
         this.hashType = hashType;
         this.digest = calculateFileHash();
     }
 
-    PFile(String path) {
+    PFile(String path, String name) {
+        this.name = name;
         this.path = path;
         this.hashType = HashType.NONE;
     }
@@ -69,10 +72,10 @@ public class PFile {
         File file = new File(this.path);
 
         ByteBuffer packet = ByteBuffer
-                .allocate(1 + 4 + this.path.length() + 1 + hashLength + 8)
+                .allocate(1 + 4 + this.name.length() + 1 + hashLength + 8)
                 .put((byte) MessageType.FILE_INFO.value())
-                .putInt(this.path.length())
-                .put(this.path.getBytes(Protocol.ENCODING))
+                .putInt(this.name.length())
+                .put(this.name.getBytes(Protocol.ENCODING))
                 .putLong(file.length())
                 .put((byte) this.hashType.value());
         if (digest != null)

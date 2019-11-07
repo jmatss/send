@@ -39,8 +39,8 @@ TODO:
 /*
     if (MessageType::FILE_INFO):
         MessageType (1 byte)
-        | PathLength (4 bytes)
-        | Path ("PathLength" bytes)
+        | NameLength (4 bytes)
+        | Name ("NameLength" bytes)
         | TotalFileLength (8 bytes)
         | HashType (1 byte)
         | Hash-digest (of whole file) (x bytes) (can be zero bytes if HashType::None)
