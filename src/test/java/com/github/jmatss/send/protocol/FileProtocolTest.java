@@ -1,5 +1,10 @@
-package com.github.jmatss.send;
+package com.github.jmatss.send.protocol;
 
+import com.github.jmatss.send.HashType;
+import com.github.jmatss.send.MessageType;
+import com.github.jmatss.send.protocol.FileProtocol;
+import com.github.jmatss.send.protocol.PFile;
+import com.github.jmatss.send.protocol.Protocol;
 import org.junit.jupiter.api.Test;
 
 import java.io.File;
@@ -92,8 +97,6 @@ public class FileProtocolTest {
             names[k] = t.name;
             paths[k] = t.path;
         }
-
-        System.out.println("ts.size(): " + ts.length + ", f_info: " + file_infos_expected.size() + ", p: " + packets_expected.size());
 
         try {
             int i = 0, j = 0;

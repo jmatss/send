@@ -1,5 +1,7 @@
-package com.github.jmatss.send;
+package com.github.jmatss.send.protocol;
 
+import com.github.jmatss.send.MessageType;
+import com.github.jmatss.send.protocol.TextProtocol;
 import org.junit.jupiter.api.Test;
 
 import java.nio.ByteBuffer;
