@@ -11,6 +11,9 @@ import java.util.Iterator;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+/**
+ * Represents a "protocol" file.
+ */
 public class PFile {
     public static final int BUFFER_SIZE = 1 << 16;
     private static final Logger LOGGER = Logger.getLogger(PFile.class.getName());
@@ -72,6 +75,24 @@ public class PFile {
         return hash.digest();
     }
 
+    /**
+     * Gets the "file info" packet that is to be sent before sending the data packets from the "packetIterator".
+     * Contains "meta-data" of the file to be sent.
+     * Format:
+     * {@code
+     * MessageType (1 byte)
+     * | NameLength (4 bytes)
+     * | Name ("NameLength" bytes)
+     * | TotalFileLength (8 bytes)
+     * | HashType (1 byte)
+     * | Hash-digest (of whole file) (x bytes)
+     * }
+     *
+     * @return the "file info" packet.
+     * @throws IOException              when it's unable to decode the name into bytes or if it's unable to open the
+     *                                  file.
+     * @throws NoSuchAlgorithmException if an incorrect hash type is used.
+     */
     public byte[] getFileInfo() throws IOException, NoSuchAlgorithmException {
         byte[] digest = this.getDigest();
         int hashLength = (digest != null) ? digest.length : 0;
@@ -91,7 +112,15 @@ public class PFile {
     }
 
 
-    public Iterable<byte[]> packetIterator(int pieceSize) throws FileNotFoundException {
+    /**
+     * Iterator over the packets to be sent. Can be sent "raw" without any modification to the receiver.
+     *
+     * @param pieceSize the maximum amount of data from the file to be sent per packet.
+     * @param hashType  the hash algorithm used on the piece data. Can be HashType.NONE.
+     * @return an iterator over the packets.
+     * @throws FileNotFoundException if it can't open the file from the PFile.path.
+     */
+    public Iterable<byte[]> packetIterator(int pieceSize, HashType hashType) throws FileNotFoundException {
         class PacketIterator implements Iterable<byte[]> {
             private int index;
             private final int pieceSize;
@@ -99,7 +128,7 @@ public class PFile {
             private final long fileLength;
             private final HashType hashType;
 
-            PacketIterator(int pieceSize) throws FileNotFoundException {
+            PacketIterator(int pieceSize, HashType hashType) throws FileNotFoundException {
                 this.index = 0;
                 this.pieceSize = pieceSize;
 
@@ -107,7 +136,10 @@ public class PFile {
                 this.input = new FileInputStream(file);
                 this.fileLength = file.length();
 
-                this.hashType = PFile.this.hashType;
+                // This hashType is for hashing of pieces of the file
+                // while the PFile hashType is for hashing of the whole file.
+                // This hashType can be HashType.NONE.
+                this.hashType = hashType;
             }
 
             @Override
@@ -172,7 +204,10 @@ public class PFile {
                 };
             }
         }
+        return new PacketIterator(pieceSize, hashType);
+    }
 
-        return new PacketIterator(pieceSize);
+    public Iterable<byte[]> packetIterator(int pieceSize) throws FileNotFoundException {
+        return packetIterator(pieceSize, Protocol.DEFAULT_HASH_TYPE);
     }
 }
