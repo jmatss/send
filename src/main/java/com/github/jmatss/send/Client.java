@@ -1,6 +1,6 @@
 package com.github.jmatss.send;
 
-public class Send {
+public class Client {
     public static void main(String[] args) {
 
     }

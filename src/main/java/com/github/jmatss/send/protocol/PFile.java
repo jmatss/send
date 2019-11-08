@@ -16,8 +16,8 @@ import java.util.logging.Logger;
  * Represents a "protocol" file.
  */
 public class PFile {
-    public static final int BUFFER_SIZE = 1 << 16;
     private static final Logger LOGGER = Logger.getLogger(PFile.class.getName());
+    public static final int BUFFER_SIZE = 1 << 16;
 
     private final String name;
     private final String path;
