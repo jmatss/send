@@ -14,14 +14,22 @@ import java.util.Random;
         | Topic Length (1 byte)
         | Topic ("Topic Length" bytes)
         | SubMessageType (1 byte)       //
+        | Port (4 bytes) (that this publisher listens of for TCP connection)
         | Random ID Number (4 bytes)    // unique
-    if (MessageType::PUBLISH && SubMessageType::FILE):
+    if (MessageType::PUBLISH && SubMessageType::FILE_PIECE):
         MessageType (1 byte)
         | Topic Length (1 byte)
         | Topic ("Topic Length" bytes)
         | SubMessageType (1 byte)
-        | Random ID Number (4 bytes)
+        | Port (4 bytes) (that this publisher listens of for TCP connection)
+        | Random ID Number (4 bytes) (unique)
         TODO: Maybe add amount of files.
+
+    if (MessageType::REQUEST):
+        MessageType (1 byte)
+        | Topic Length (1 byte)
+        | Topic ("Topic Length" bytes)
+        | ID Number (4 bytes) (corresponding to the id in the PUBLISH message)
 
     if (MessageType::TEXT):
         MessageType (1 byte)
@@ -32,12 +40,14 @@ import java.util.Random;
     A                   B
     Publish ->
                         <- Subscribe
+                        <- REQUEST
     Text ->
     ...
 
     A                   B
                         <- Subscribe
     Publish ->
+                        <- REQUEST
     Text ->
     ...
 */
@@ -49,15 +59,15 @@ import java.util.Random;
         | Name ("NameLength" bytes)
         | TotalFileLength (8 bytes)
         | HashType (1 byte)
-        | Hash-digest (of whole file) (x bytes) (can be zero bytes if HashType::None)
-    if (MessageType::FILE):
+        | Hash-digest (of whole file) (x bytes)
+    if (MessageType::FILE_PIECE):
         MessageType (1 byte)
         | Index (4 bytes)
         | Length (4 bytes)
         | PieceContent ("Length" bytes)
         | HashType (1 byte)
         | Hash-digest (of this piece) (x bytes) (can be zero bytes if HashType::None)
-    if (MessageType::FILE_DONE):
+    if (MessageType::DONE):
         MessageType (1 byte)
         | Index (4 bytes)
 
@@ -65,16 +75,18 @@ import java.util.Random;
     A                   B
     Publish ->
                         <- Subscribe
+                        <- REQUEST
     File_info ->
-        File ->
+        FILE_PIECE ->
         ...
     ...
 
     A                   B
                         <- Subscribe
     Publish ->
+                        <- REQUEST
     File_info ->
-        File ->
+        FILE_PIECE ->
         ...
     ...
 
@@ -84,8 +96,8 @@ import java.util.Random;
 */
 
 abstract public class Protocol<T> {
-    public static final int MAX_PUBLISH_PACKET_SIZE = 1 + 1 + 256 + 1 + 4;
-    public static final int MIN_PUBLISH_PACKET_SIZE = 1 + 1 + 1 + 4;
+    public static final int MAX_PUBLISH_PACKET_SIZE = 1 + 1 + 256 + 1 + 4 + 4;
+    public static final int MIN_PUBLISH_PACKET_SIZE = 1 + 1 + 1 + 4 + 4;
     public static final int MAX_PIECE_SIZE = 1 << 16;
     public static final int DEFAULT_PIECE_SIZE = 1 << 16;
     public static final HashType DEFAULT_HASH_TYPE = HashType.SHA1;
@@ -102,7 +114,7 @@ abstract public class Protocol<T> {
 
     abstract public Iterable<T> iter();
 
-    public byte[] getPublishPacket(String topic) {
+    public byte[] getPublishPacket(String topic, int port) {
         if (this.id == null)
             this.id = ByteBuffer.allocate(4).putInt(new Random().nextInt()).array();
 
@@ -114,12 +126,13 @@ abstract public class Protocol<T> {
             throw new RuntimeException(e);
         }
 
-        return ByteBuffer.allocate(1 + 4 + topicBytes.length + 1 + 4)
+        return ByteBuffer.allocate(1 + 4 + topicBytes.length + 1 + 4 + 4)
                 .put((byte) MessageType.PUBLISH.value())
                 .putInt(topicBytes.length)
                 .put(topicBytes)
                 .put((byte) getMessageType().value())
-                .put(this.id)
+                .putInt(port)
+                .put(getId())
                 .array();
     }
 

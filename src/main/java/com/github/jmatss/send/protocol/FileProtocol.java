@@ -8,7 +8,7 @@ import java.security.NoSuchAlgorithmException;
 import java.util.Iterator;
 
 public class FileProtocol extends Protocol {
-    private final MessageType messageType = MessageType.FILE;
+    private final MessageType messageType = MessageType.FILE_PIECE;
     private PFile[] files;
 
     FileProtocol(PFile[] files) {

@@ -171,7 +171,7 @@ public class PFile {
 
                         ByteBuffer packet = ByteBuffer
                                 .allocate(1 + 4 + 4 + minPieceSize + 1 + hashLength)
-                                .put((byte) MessageType.FILE.value())
+                                .put((byte) MessageType.FILE_PIECE.value())
                                 .putInt(this.sup.index)
                                 .putInt(minPieceSize)
                                 .put(content)
