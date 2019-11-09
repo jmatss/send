@@ -23,14 +23,14 @@ import java.util.logging.Logger;
 // TODO: Fix limitation of only one ip/port(?)
 public class Controller {
     private static final Logger LOGGER = Logger.getLogger(Controller.class.getName());
+    private ScheduledExecutorService executor;
     private MulticastSocket socket;
     private InetAddress ip;
     private int port;
 
     // PUBLISHING
-    private Map<String, ScheduledFuture> publishedTasks;
-    private Lock mutexPublishedTasks;
-    private ScheduledExecutorService publishExecutor;
+    private Map<String, Future<?>> publishedTopics;
+    private Lock mutexPublishedTopics;
 
     // SUBSCRIBING
     private Set<String> subscribedTopics;
@@ -59,19 +59,16 @@ public class Controller {
         this(Protocol.DEFAULT_PORT, false);
     }
 
-    private void init(String ip, int port)
-            throws IOException {
+    private void init(String ip, int port) throws IOException {
         if (port > (1 << 16) - 1 || port < 0)
             throw new IllegalArgumentException("Incorrect port number: " + port);
         else if (!InetAddress.getByName(ip).isMulticastAddress())
             throw new IllegalArgumentException("Specified ip isn't a multicast address: " + ip);
 
-        int processors = Runtime.getRuntime().availableProcessors();
+        this.executor = ScheduledExecutorServiceSingleton.getInstance();
 
-        this.publishExecutor = Executors.newScheduledThreadPool(processors);
-        this.publishedTasks = new HashMap<>();
-        this.mutexPublishedTasks = new ReentrantLock(true);
-
+        this.publishedTopics = new HashMap<>();
+        this.mutexPublishedTopics = new ReentrantLock(true);
         this.subscribedTopics = new TreeSet<>();
         this.mutexSubscribedTopics = new ReentrantLock(true);
 
@@ -92,6 +89,8 @@ public class Controller {
      * publishing before the timeout.
      * @throws IncorrectMessageTypeException thrown if a protocol containing a disallowed MessageType is given.
      */
+    // TODO: Create listening socket in the beginning of this function and take port from it
+    //  and send to getPublishPacket().
     public String publish(Protocol protocol, String topic, long timeout, long interval) throws IncorrectMessageTypeException {
         verifyProtocol(protocol);
         if (timeout < 0)
@@ -99,15 +98,15 @@ public class Controller {
         else if (interval <= 0)
             throw new IllegalArgumentException("Interval set to zero or less.");
 
-        this.mutexPublishedTasks.lock();
+        this.mutexPublishedTopics.lock();
         try {
-            if (this.publishedTasks.containsKey(topic))
+            if (this.publishedTopics.containsKey(topic))
                 throw new IllegalArgumentException("Already publishing on this topic.");
 
-            byte[] packet = protocol.getPublishPacket(topic);
+            byte[] packet = protocol.getPublishPacket(topic, TODO PORT);
             DatagramPacket datagramPacket = new DatagramPacket(packet, packet.length, this.ip, this.port);
 
-            ScheduledFuture<?> task = this.publishExecutor.scheduleAtFixedRate(
+            Future<?> task = this.executor.scheduleAtFixedRate(
                     () -> {
                         try {
                             this.socket.send(datagramPacket);
@@ -120,15 +119,15 @@ public class Controller {
                     TimeUnit.SECONDS
             );
 
-            this.publishedTasks.put(topic, task);
+            this.publishedTopics.put(topic, task);
         } finally {
-            this.mutexPublishedTasks.unlock();
+            this.mutexPublishedTopics.unlock();
         }
 
         // Automatically cancel and remove task from this.publishedTasks map after timeout.
         // (but only if timeout is set and no one else has already done it).
         if (timeout != 0) {
-            this.publishExecutor.schedule(
+            this.executor.schedule(
                     () -> {
                         cancelPublish(topic);
                     },
@@ -143,17 +142,23 @@ public class Controller {
     // FIXME: If someone does a manual cancel, and then re-published on the same topic,
     //  the "timeout-cancel" can cancel the newly published topic.
     private void cancelPublish(String topic) {
-        this.mutexPublishedTasks.lock();
+        this.mutexPublishedTopics.lock();
         try {
-            if (this.publishedTasks.containsKey(topic)) {
-                this.publishedTasks.get(topic).cancel(true);
-                this.publishedTasks.remove(topic);
+            if (this.publishedTopics.containsKey(topic)) {
+                this.publishedTopics.get(topic).cancel(true);
+                this.publishedTopics.remove(topic);
             }
         } finally {
-            this.mutexPublishedTasks.unlock();
+            this.mutexPublishedTopics.unlock();
         }
     }
 
+    /**
+     * Subscribes to the specified topic. The subscription can be canceled by calling cancelSubscribe with the topic.
+     *
+     * @param topic to subscribe to.
+     * @return the topic.
+     */
     public String subscribe(String topic) {
         this.mutexSubscribedTopics.lock();
         try {
@@ -181,7 +186,7 @@ public class Controller {
     private Protocol verifyProtocol(Protocol protocol) throws IncorrectMessageTypeException {
         MessageType messageType = protocol.getMessageType();
         switch (messageType) {
-            case FILE:
+            case FILE_PIECE:
                 if (!(protocol instanceof FileProtocol))
                     throw new IncorrectMessageTypeException(errString(messageType, "FileProtocol"));
                 break;
