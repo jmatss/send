@@ -13,8 +13,9 @@ public class TextProtocolTest {
         try {
             String text = "testabc123";
             byte[] packet_expected = ByteBuffer
-                    .allocate(1 + 4 + text.length())
+                    .allocate(1 + 4 + 4 + text.length())
                     .put((byte) MessageType.TEXT.value())
+                    .putInt(0)
                     .putInt(text.length())
                     .put(text.getBytes())
                     .array();
@@ -41,8 +42,9 @@ public class TextProtocolTest {
             byte[][] packets_expected = new byte[2][];
             for (int i = 0; i < packets_expected.length; i++) {
                 packets_expected[i] = ByteBuffer
-                        .allocate(1 + 4 + pieceSize)
+                        .allocate(1 + 4 + 4 + pieceSize)
                         .put((byte) MessageType.TEXT.value())
+                        .putInt(i)
                         .putInt(pieceSize)
                         .put(text.substring(i * pieceSize, (i + 1) * pieceSize).getBytes())
                         .array();

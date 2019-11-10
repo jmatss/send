@@ -32,7 +32,7 @@ public class FileProtocolTest {
 
         byte[] packet_expected = ByteBuffer
                 .allocate(1 + 4 + 4 + t.content.length + 1)
-                .put((byte) MessageType.FILE.value())
+                .put((byte) MessageType.FILE_PIECE.value())
                 .putInt(0)
                 .putInt(t.content.length)
                 .put(t.content)
@@ -64,7 +64,7 @@ public class FileProtocolTest {
         for (int i = 0; i < 2; i++) {
             packets_expected.add(ByteBuffer
                     .allocate(1 + 4 + 4 + pieceSize + 1)
-                    .put((byte) MessageType.FILE.value())
+                    .put((byte) MessageType.FILE_PIECE.value())
                     .putInt(i)
                     .putInt(pieceSize)
                     .put(Arrays.copyOfRange(t.content, i * pieceSize, (i + 1) * pieceSize))
@@ -112,11 +112,11 @@ public class FileProtocolTest {
 
         try {
             int i = 0, j = 0;
-            for (PFile pFile : new FileProtocol(names, paths, fileHashType).iter()) {
+            for (PFile pFile : new FileProtocol(names, paths, fileHashType, pieceHashType, pieceSize).iter()) {
                 if (i >= file_infos_expected.size()) break;
-                assertArrayEquals(file_infos_expected.get(i), pFile.getFileInfo());
+                assertArrayEquals(file_infos_expected.get(i), pFile.getFileInfoPacket());
                 j = 0;
-                for (byte[] packet_got : pFile.packetIterator(pieceSize, pieceHashType)) {
+                for (byte[] packet_got : pFile.packetIterator()) {
                     if (j >= packets_expected.size()) break;
                     assertArrayEquals(packets_expected.get(j), packet_got);
                     j++;
