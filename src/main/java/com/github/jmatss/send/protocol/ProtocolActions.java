@@ -67,7 +67,7 @@ public class ProtocolActions {
         out.write(ByteBuffer
                 .allocate(1 + 1 + pp.topicLength + 4)
                 .put((byte) MessageType.REQUEST.value())
-                .put(pp.topicLength)
+                .put((byte) pp.topicLength)
                 .put(pp.topic.getBytes(Protocol.ENCODING))
                 .put(pp.id)
                 .array());
@@ -163,6 +163,21 @@ public class ProtocolActions {
         return new FileInfoPacket(nameLength, name, fileLength, hashType, digest);
     }
 
+    public static PublishPacket receivePublish(InputStream in)
+            throws IOException, IncorrectMessageTypeException {
+        MessageType messageType = MessageType.PUBLISH;
+        if (!isMessageType(in, messageType))
+            throw new IncorrectMessageTypeException("Received incorrect message type");
+
+        int topicLength = readByte(in);
+        String topic = new String(readN(in, topicLength), Protocol.ENCODING);
+        int subMessageType = readByte(in);
+        int port = readInt(in);
+        byte[] id = readN(in, 4);
+
+        return new PublishPacket(subMessageType, topicLength, topic, port, id);
+    }
+
     /**
      * Receives a file piece.
      *
@@ -184,7 +199,7 @@ public class ProtocolActions {
 
         int remoteIndex = readInt(in);
         if (localIndex != remoteIndex)
-            throw new IOException("Index received from file piece packet is different from the local index." +
+            throw new IOException("Index received from remote packet is different from the local index." +
                     " local index: " + localIndex + ", remote done index: " + remoteIndex);
 
         int pieceLength = readInt(in);
