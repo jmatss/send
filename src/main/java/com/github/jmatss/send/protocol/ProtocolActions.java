@@ -6,6 +6,7 @@ import com.github.jmatss.send.exception.IncorrectHashTypeException;
 import com.github.jmatss.send.exception.IncorrectMessageTypeException;
 import com.github.jmatss.send.packet.FileInfoPacket;
 import com.github.jmatss.send.packet.PublishPacket;
+import com.github.jmatss.send.packet.RequestPacket;
 
 import java.io.*;
 import java.nio.ByteBuffer;
@@ -24,20 +25,13 @@ public class ProtocolActions {
      * @return a boolean indicating if the packet is a done packet or not.
      * @throws IOException if it is unable to read from the input stream.
      */
-    public static boolean isDonePacket(PushbackInputStream in, int localIndex) throws IOException {
+    public static boolean isDone(PushbackInputStream in, int localIndex) throws IOException {
         int messageType;
         if ((messageType = in.read()) == MessageType.DONE.value()) {
-            byte[] doneIndexBuf = new byte[4];
-            int n = in.read(doneIndexBuf);
-            if (n != doneIndexBuf.length)
-                throw new IOException("Unable to read all index bytes from the done packet.");
-            int remoteIndex = ByteBuffer.allocate(4).put(doneIndexBuf).getInt();
-
-            if (localIndex != remoteIndex) {
+            int remoteIndex = readInt(in);
+            if (localIndex != remoteIndex)
                 throw new IOException("Index received from done packet is different from the local index." +
-                        " local index: " + localIndex + ", remote done index: " + remoteIndex);
-            }
-
+                        " Local index: " + localIndex + ", remote index: " + remoteIndex);
             return true;
         } else {
             in.unread(messageType);
@@ -45,11 +39,31 @@ public class ProtocolActions {
         }
     }
 
-    public static void sendDonePacket(OutputStream out, int index) throws IOException {
-        out.write(ByteBuffer.allocate(4).putInt(index).array());
+    // Removes the first byte
+    // TODO: Maybe return more information so that the caller can see which message type was received.
+    private static boolean isMessageType(InputStream in, MessageType localMessageType) throws IOException {
+        return readByte(in) == localMessageType.value();
     }
 
-    public static void sendRequestPacket(OutputStream out, PublishPacket pp) throws IOException {
+    // TODO: Some sort of check that it is either a yes or no packet, throw exception otherwise
+    public static boolean isYes(InputStream in) throws IOException {
+        return isMessageType(in, MessageType.YES);
+    }
+
+    public static boolean isNo(InputStream in, int localIndex) throws IOException {
+        return isMessageType(in, MessageType.NO);
+    }
+
+    // TODO: Make these "send...Packet" functions uniform. Ex. by always giving them some sort
+    //  of "packet-class" instead of the current different second arguments.
+    public static void sendDone(OutputStream out, int index) throws IOException {
+        out.write(ByteBuffer.allocate(5)
+                .put((byte) MessageType.DONE.value())
+                .putInt(index)
+                .array());
+    }
+
+    public static void sendRequest(OutputStream out, PublishPacket pp) throws IOException {
         out.write(ByteBuffer
                 .allocate(1 + 1 + pp.topicLength + 4)
                 .put((byte) MessageType.REQUEST.value())
@@ -59,49 +73,82 @@ public class ProtocolActions {
                 .array());
     }
 
+    public static void sendPacket(OutputStream out, byte... packet) throws IOException {
+        out.write(packet);
+    }
+
+    public static void sendText(OutputStream out, byte[] textPacket) throws IOException {
+        sendPacket(out, textPacket);
+    }
+
+    public static void sendFileInfo(OutputStream out, byte[] fileInfo) throws IOException {
+        sendPacket(out, fileInfo);
+    }
+
+    public static void sendFilePiece(OutputStream out, byte[] filePiece) throws IOException {
+        sendPacket(out, filePiece);
+    }
+
+    public static void sendYes(OutputStream out) throws IOException {
+        sendPacket(out, (byte) MessageType.YES.value());
+    }
+
+    public static void sendNo(OutputStream out) throws IOException {
+        sendPacket(out, (byte) MessageType.NO.value());
+    }
+
+    public static String receiveText(InputStream in, int localIndex)
+            throws IOException, IncorrectMessageTypeException {
+        MessageType messageType = MessageType.TEXT;
+        if (!isMessageType(in, messageType))
+            throw new IncorrectMessageTypeException("Received incorrect message type");
+
+        int remoteIndex = readInt(in);
+        if (localIndex != remoteIndex)
+            throw new IOException("Index received from remote packet is different from the local index." +
+                    " Local index: " + localIndex + ", remote index: " + remoteIndex);
+
+        // TODO: Make sure length isn't a weird size (ex. extremely large).
+        int textLength = readInt(in);
+        return new String(readN(in, textLength), Protocol.ENCODING);
+    }
+
+    public static RequestPacket receiveRequest(InputStream in)
+            throws IOException, IncorrectMessageTypeException {
+        MessageType messageType = MessageType.REQUEST;
+        if (!isMessageType(in, messageType))
+            throw new IncorrectMessageTypeException("Received incorrect message type");
+
+        int topicLength = readByte(in);
+        String topic = new String(readN(in, topicLength), Protocol.ENCODING);
+        byte[] id = readN(in, 4);
+
+        return new RequestPacket(topicLength, topic, id);
+    }
+
     /**
      * Received a file info packet.
      *
      * @param in the input stream of the socket.
      * @return a FileInfoPacket containing the data from the received packet.
      * @throws IOException                   if it is unable to read from the input stream.
-     *                                       It also encapsulates EOFExceptions thrown if the input stream reaches EOF.
+     *                                       It also encapsulates EOFExceptions thrown if the input stream
+     *                                       reaches EOF.
      * @throws IncorrectMessageTypeException if the file info packet contains an invalid MessageType.
      * @throws IncorrectHashTypeException    if the file info packet contains an invalid HashType.
      */
     public static FileInfoPacket receiveFileInfo(InputStream in)
             throws IOException, IncorrectMessageTypeException, IncorrectHashTypeException {
-        int n;
-        byte[] buf;
-
-        int messageType = in.read();
-        if (messageType == -1)
-            throw new EOFException("End of file reached while reading FileInfo message type.");
-        else if (messageType != MessageType.FILE_INFO.value())
-            throw new IncorrectMessageTypeException("Received incorrect message type while reading FileInfo packet.");
+        MessageType messageType = MessageType.FILE_INFO;
+        if (!isMessageType(in, messageType))
+            throw new IncorrectMessageTypeException("Received incorrect message type");
 
         // TODO: Make sure length isn't a weird size (ex. extremely large).
-        buf = new byte[4];
-        n = in.read(buf);
-        if (n == -1)
-            throw new EOFException("End of file reached while reading FileInfo name length.");
-        int nameLength = ByteBuffer.allocate(4).put(buf).getInt();
-
-        buf = new byte[nameLength];
-        n = in.read(buf);
-        if (n == -1)
-            throw new EOFException("End of file reached while reading FileInfo name.");
-        String name = new String(buf, Protocol.ENCODING);
-
-        buf = new byte[8];
-        n = in.read(buf);
-        if (n == -1)
-            throw new EOFException("End of file reached while reading FileInfo file length.");
-        long fileLength = ByteBuffer.allocate(8).put(buf).getLong();
-
-        int hashType = in.read();
-        if (hashType == -1)
-            throw new EOFException("End of file reached while reading FileInfo hash type.");
+        int nameLength = readInt(in);
+        String name = new String(readN(in, nameLength), Protocol.ENCODING);
+        long fileLength = readLong(in);
+        int hashType = readByte(in);
+        byte[] digest;
 
         int hashSize;
         if (hashType == HashType.SHA1.value())
@@ -111,82 +158,42 @@ public class ProtocolActions {
         else
             throw new IncorrectHashTypeException("Received incorrect hash type while reading FileInfo packet.");
 
-        buf = new byte[hashSize];
-        n = in.read(buf);
-        if (n == -1)
-            throw new EOFException("End of file reached while reading FileInfo hash.");
-        byte[] digest = buf;
+        digest = readN(in, hashSize);
 
         return new FileInfoPacket(nameLength, name, fileLength, hashType, digest);
     }
 
     /**
-     * Received a file info packet.
-     *
-     * @param in the input stream of the socket.
-     * @return a FileInfoPacket containing the data from the received packet.
-     * @throws IOException                   if it is unable to read from the input stream.
-     *                                       It also encapsulates EOFExceptions thrown if the input stream reaches EOF.
-     * @throws IncorrectMessageTypeException if the file info packet contains an invalid MessageType.
-     * @throws IncorrectHashTypeException    if the file info packet contains an invalid HashType.
-     */
-
-    /**
      * Receives a file piece.
      *
      * @param in         the input stream of the socket.
-     * @param pp         containing data from the previously received publish packet.
      * @param localIndex the current piece index.
-     * @return
+     * @return the piece data.
      * @throws IOException                   if it is unable to read from the input stream.
-     *                                       It also encapsulatesEOFExceptions thrown if the input stream reaches EOF.
+     *                                       It also encapsulatesEOFExceptions thrown if the input stream reaches
+     *                                       EOF.
      * @throws IncorrectMessageTypeException if the file info packet contains an invalid MessageType.
      * @throws IncorrectHashTypeException    if the file info packet contains an invalid HashType.
      * @throws NoSuchAlgorithmException      if a incorrect hash function is used.
      */
-    public static byte[] receiveFilePiece(InputStream in, PublishPacket pp, int localIndex)
+    public static byte[] receiveFilePiece(InputStream in, int localIndex)
             throws IOException, IncorrectMessageTypeException, IncorrectHashTypeException, NoSuchAlgorithmException {
-        int n;
-        byte[] buf;
+        MessageType messageType = MessageType.FILE_PIECE;
+        if (!isMessageType(in, messageType))
+            throw new IncorrectMessageTypeException("Received incorrect message type");
 
-        int messageType = in.read();
-        if (messageType == -1)
-            throw new EOFException("End of file reached while reading FilePiece message type.");
-        else if (messageType != MessageType.FILE_PIECE.value())
-            throw new IncorrectMessageTypeException("Received incorrect message type while reading FilePiece packet.");
-
-        buf = new byte[4];
-        n = in.read(buf);
-        if (n == -1)
-            throw new EOFException("End of file reached while reading FilePiece index.");
-        int remoteIndex = ByteBuffer.allocate(4).put(buf).getInt();
-        if (localIndex != remoteIndex) {
+        int remoteIndex = readInt(in);
+        if (localIndex != remoteIndex)
             throw new IOException("Index received from file piece packet is different from the local index." +
                     " local index: " + localIndex + ", remote done index: " + remoteIndex);
-        }
 
-        // TODO: Make sure length isn't a weird size (ex. extremely large).
-        buf = new byte[4];
-        n = in.read(buf);
-        if (n == -1)
-            throw new EOFException("End of file reached while reading FilePiece piece length.");
-        int pieceLength = ByteBuffer.allocate(4).put(buf).getInt();
-
-        buf = new byte[pieceLength];
-        n = in.read(buf);
-        if (n == -1)
-            throw new EOFException("End of file reached while reading FilePiece piece data.");
-        byte[] pieceData = buf.clone();
-
-        int hashType = in.read();
-        if (hashType == -1)
-            throw new EOFException("End of file reached while reading FilePiece hash type.");
+        int pieceLength = readInt(in);
+        byte[] pieceData = readN(in, pieceLength);
+        int hashType = readByte(in);
 
         int hashLength;
-        byte[] actualDigest, packetDigest;
         MessageDigest md;
         // If the hash type isn't none: calculate and compare digest (if the given hash type is valid).
-        // Else: do nothing.
         if (hashType != HashType.NONE.value()) {
             if (hashType == HashType.SHA1.value()) {
                 hashLength = HashType.SHA1.size();
@@ -198,22 +205,42 @@ public class ProtocolActions {
                 throw new IncorrectHashTypeException("Received incorrect hash type while parsing file piece packet: " + hashType);
             }
 
-            packetDigest = new byte[hashLength];
-            n = in.read(buf);
-            if (n == -1)
-                throw new EOFException("End of file reached while reading FilePiece digest.");
-            else if (n != hashLength)
-                throw new IOException("Read to few bytes while reading digest." +
-                        " Expected: " + hashLength + ", got:" + n);
-
-            actualDigest = md.digest(pieceData);
-            if (!Arrays.equals(actualDigest, packetDigest)) {
-                throw new IOException("Received digest incorrect. " +
+            byte[] packetDigest = readN(in, hashLength);
+            byte[] actualDigest = md.digest(pieceData);
+            if (!Arrays.equals(actualDigest, packetDigest))
+                throw new IOException("Received packet digest is incorrect. " +
                         "Calculated digest of received piece data: " + Arrays.toString(actualDigest) +
                         ", digest received from remote: " + Arrays.toString(packetDigest));
-            }
         }
 
         return pieceData;
+    }
+
+    private static byte[] readN(InputStream in, int n) throws IOException {
+        byte[] buf = new byte[n];
+        int readBytes = in.read(buf);
+        if (readBytes == -1)
+            throw new EOFException("End of file reached while reading bytes from the input stream.");
+        else if (n != readBytes)
+            throw new IOException("Unable to read all bytes from input stream. " +
+                    "Expected: " + n + " bytes, got: " + readBytes + " bytes.");
+        return buf;
+    }
+
+    private static byte readByte(InputStream in) throws IOException {
+        byte res = (byte) in.read();
+        if (res == -1)
+            throw new EOFException("End of file reached while reading one byte.");
+        return res;
+    }
+
+    private static int readInt(InputStream in) throws IOException {
+        byte[] buf = readN(in, 4);
+        return ByteBuffer.allocate(4).put(buf).getInt();
+    }
+
+    private static long readLong(InputStream in) throws IOException {
+        byte[] buf = readN(in, 8);
+        return ByteBuffer.allocate(8).put(buf).getLong();
     }
 }
