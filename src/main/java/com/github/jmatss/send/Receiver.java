@@ -5,6 +5,7 @@ import com.github.jmatss.send.exception.IncorrectMessageTypeException;
 import com.github.jmatss.send.packet.FileInfoPacket;
 import com.github.jmatss.send.packet.PublishPacket;
 import com.github.jmatss.send.protocol.Protocol;
+import com.github.jmatss.send.protocol.ProtocolActions;
 
 import java.io.*;
 import java.net.DatagramPacket;
@@ -87,10 +88,12 @@ public class Receiver {
             OutputStream out = new DataOutputStream(socket.getOutputStream());
             PushbackInputStream in = new PushbackInputStream(socket.getInputStream());
 
+            sendRequest(out, publishPacket);
+
             if (subMessageType == MessageType.FILE_PIECE.value())
-                receiveFile(publishPacket, socket, in, out);
+                receiveFile(in, out);
             else if (subMessageType == MessageType.TEXT.value())
-                receiveText(publishPacket, socket, in, out);
+                receiveText(in);
             else
                 throw new RuntimeException("Incorrect subMessageType received: " + subMessageType);
 
@@ -102,13 +105,15 @@ public class Receiver {
         }
     }
 
-    private void receiveFile(PublishPacket pp, Socket socket, PushbackInputStream in, OutputStream out)
+    private void receiveFile(PushbackInputStream in, OutputStream out)
             throws IOException, IncorrectHashTypeException, IncorrectMessageTypeException, NoSuchAlgorithmException {
-        sendRequestPacket(out, pp);
-
+        // FIXME: Temporary max iteration.
+        final int MAX_ITERATIONS = 1 << 16;
+        int iterations = 0;
         while (true) {
-            int index = 0;
-            if (isDonePacket(in, index))
+            if (isDone(in, 0))
+                break;
+            else if (iterations >= MAX_ITERATIONS)
                 break;
 
             FileInfoPacket fileInfoPacket = receiveFileInfo(in);
@@ -117,20 +122,39 @@ public class Receiver {
             // TODO: More checking, ex see if hash is the same; if not, download with another name.
             File file = new File(this.downloadPath + fileInfoPacket.name);
             if (!file.exists()) {
+                sendYes(out);
+
                 try (OutputStream fileWriter = new FileOutputStream(file)) {
-                    while (!isDonePacket(in, index)) {
-                        fileWriter.write(receiveFilePiece(in, pp, index));
+                    int index = 0;
+                    while (!isDone(in, index)) {
+                        fileWriter.write(receiveFilePiece(in, index));
                         index++;
+                    }
+
+                    if (file.length() != fileInfoPacket.fileLength) {
+                        // TODO: return custom error(?)
+                        LOGGER.log(Level.SEVERE, "Unable to download while file " + fileInfoPacket.name +
+                                ". Expected: " + fileInfoPacket.fileLength + " bytes, " +
+                                "got: " + file.length() + " bytes");
                     }
                 }
             } else {
-                sendDonePacket(out, index);
+                sendNo(out);
             }
+
+            iterations++;
         }
     }
 
-    private void receiveText(PublishPacket publishPacket, Socket socket, PushbackInputStream in, OutputStream out)
-            throws UnsupportedEncodingException {
-
+    // TODO: Make an local "out" where the received text is to be written.
+    private void receiveText(PushbackInputStream in) throws IOException, IncorrectMessageTypeException {
+        int index = 0;
+        while (!isDone(in, 0)) {
+            String text = ProtocolActions.receiveText(in, index);
+            // FIXME: temp out
+            System.out.print(text);
+            index++;
+        }
+        System.out.println();
     }
 }
