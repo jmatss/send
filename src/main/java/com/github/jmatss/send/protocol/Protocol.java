@@ -33,6 +33,7 @@ import java.util.Random;
 
     if (MessageType::TEXT):
         MessageType (1 byte)
+        | Index (4 bytes)
         | Length (4 bytes)
         | Text ("Length" bytes)
 
@@ -67,6 +68,10 @@ import java.util.Random;
         | PieceContent ("Length" bytes)
         | HashType (1 byte)
         | Hash-digest (of this piece) (x bytes) (can be zero bytes if HashType::None)
+    if (MessageType::YES || MessageType::NO):
+        MessageType (1 byte)
+    // TODO: weird to always send index with done
+    //  ex.
     if (MessageType::DONE):
         MessageType (1 byte)
         | Index (4 bytes)
