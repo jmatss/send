@@ -19,12 +19,16 @@ public class PFile {
     private static final Logger LOGGER = Logger.getLogger(PFile.class.getName());
     public static final int BUFFER_SIZE = 1 << 16;
 
+    // fileHashType can NOT be HashType.NONE while pieceHashType can.
+    private HashType fileHashType;
+    private HashType pieceHashType;
+
     private final String name;
     private final String path;
-    private HashType fileHashType;
-    private byte[] digest;
+    private int pieceSize;
 
-    PFile(String name, String path, HashType fileHashType) throws IOException, NoSuchAlgorithmException {
+    PFile(String name, String path, HashType fileHashType, HashType pieceHashType, int pieceSize)
+            throws IOException, NoSuchAlgorithmException {
         if (!new File(path).exists())
             throw new FileNotFoundException("Unable to find file " + path);
         else if (fileHashType == HashType.NONE)
@@ -33,7 +37,8 @@ public class PFile {
         this.name = name;
         this.path = path;
         this.fileHashType = fileHashType;
-        this.digest = calculateFileHash();
+        this.pieceHashType = pieceHashType;
+        this.pieceSize = pieceSize;
     }
 
     public HashType getFileHashType() {
@@ -44,14 +49,20 @@ public class PFile {
         this.fileHashType = fileHashType;
     }
 
+    public HashType getPieceHashType() {
+        return this.pieceHashType;
+    }
+
+    public void setPieceHashType(HashType pieceHashType) {
+        this.pieceHashType = pieceHashType;
+    }
+
     public String getPath() {
         return this.path;
     }
 
     public byte[] getDigest() throws IOException, NoSuchAlgorithmException {
-        if (this.digest == null)
-            this.digest = calculateFileHash();
-        return this.digest.clone();
+        return calculateFileHash();
     }
 
     private byte[] calculateFileHash() throws NoSuchAlgorithmException, IOException {
@@ -84,13 +95,12 @@ public class PFile {
      *                                  file.
      * @throws NoSuchAlgorithmException if an incorrect hash type is used.
      */
-    public byte[] getFileInfo() throws IOException, NoSuchAlgorithmException {
+    public byte[] getFileInfoPacket() throws IOException, NoSuchAlgorithmException {
         byte[] digest = this.getDigest();
-        int hashLength = (digest != null) ? digest.length : 0;
         File file = new File(this.path);
 
         ByteBuffer packet = ByteBuffer
-                .allocate(1 + 4 + this.name.length() + 1 + hashLength + 8)
+                .allocate(1 + 4 + this.name.length() + 1 + digest.length + 8)
                 .put((byte) MessageType.FILE_INFO.value())
                 .putInt(this.name.length())
                 .put(this.name.getBytes(Protocol.ENCODING))
@@ -101,45 +111,35 @@ public class PFile {
         return packet.array();
     }
 
-
     /**
      * Iterator over the packets to be sent. Can be sent "raw" without any modification to the receiver.
      *
-     * @param pieceSize the maximum amount of data from the file to be sent per packet.
-     * @param pieceHashType  the hash algorithm used on the piece data. Can be HashType.NONE.
      * @return an iterator over the packets.
      * @throws FileNotFoundException if it can't open the file from the PFile.path.
      */
-    public Iterable<byte[]> packetIterator(int pieceSize, HashType pieceHashType) throws FileNotFoundException {
+    public Iterable<byte[]> packetIterator() throws FileNotFoundException {
         class PacketIterator implements Iterable<byte[]> {
             private int index;
-            private final int pieceSize;
             private final InputStream input;
             private final long fileLength;
-            private final HashType pieceHashType;
 
-            PacketIterator(int pieceSize, HashType pieceHashType) throws FileNotFoundException {
+            PacketIterator() throws FileNotFoundException {
                 this.index = 0;
-                this.pieceSize = pieceSize;
 
                 File file = new File(PFile.this.path);
                 this.input = new FileInputStream(file);
                 this.fileLength = file.length();
-
-                // This pieceHashType is for hashing pieces of the file
-                // while the PFile HashType is for hashing of the whole file.
-                // This pieceHashType can be HashType.NONE.
-                this.pieceHashType = pieceHashType;
             }
 
             @Override
             public Iterator<byte[]> iterator() {
                 return new Iterator<byte[]>() {
                     PacketIterator sup = PacketIterator.this;
+                    PFile supSup = PFile.this;
 
                     @Override
                     public boolean hasNext() {
-                        boolean result = this.sup.fileLength > this.sup.index * this.sup.pieceSize;
+                        boolean result = this.sup.fileLength > this.sup.index * this.supSup.pieceSize;
                         if (!result) {
                             try {
                                 this.sup.input.close();
@@ -152,8 +152,8 @@ public class PFile {
 
                     @Override
                     public byte[] next() {
-                        long remainingSize = this.sup.fileLength - this.sup.index * this.sup.pieceSize;
-                        int minPieceSize = (int) Math.min(remainingSize, this.sup.pieceSize);
+                        long remainingSize = this.sup.fileLength - this.sup.index * this.supSup.pieceSize;
+                        int minPieceSize = (int) Math.min(remainingSize, this.supSup.pieceSize);
 
                         byte[] content = new byte[minPieceSize];
                         byte[] digest;
@@ -163,7 +163,6 @@ public class PFile {
                             digest = getPieceDigest(content);
                         } catch (IOException | NoSuchAlgorithmException e) {
                             LOGGER.log(Level.SEVERE, e.getMessage());
-                            e.printStackTrace();
                             return null;
                         }
 
@@ -175,7 +174,7 @@ public class PFile {
                                 .putInt(this.sup.index)
                                 .putInt(minPieceSize)
                                 .put(content)
-                                .put((byte) this.sup.pieceHashType.value());
+                                .put((byte) this.supSup.pieceHashType.value());
                         if (digest != null)
                             packet.put(digest);
 
@@ -184,16 +183,16 @@ public class PFile {
                     }
 
                     private byte[] getPieceDigest(byte[] piece) throws IOException, NoSuchAlgorithmException {
-                        if (this.sup.pieceHashType == HashType.NONE)
+                        if (this.supSup.pieceHashType == HashType.NONE)
                             return null;
                         return MessageDigest
-                                .getInstance(this.sup.pieceHashType.toString())
+                                .getInstance(this.supSup.pieceHashType.toString())
                                 .digest(piece);
                     }
                 };
             }
         }
 
-        return new PacketIterator(pieceSize, pieceHashType);
+        return new PacketIterator();
     }
 }

@@ -8,6 +8,7 @@ import java.security.NoSuchAlgorithmException;
 import java.util.Iterator;
 
 public class FileProtocol extends Protocol {
+    // TODO: dont use File_piece for this, change to something else.
     private final MessageType messageType = MessageType.FILE_PIECE;
     private PFile[] files;
 
@@ -17,7 +18,7 @@ public class FileProtocol extends Protocol {
         this.files = files;
     }
 
-    FileProtocol(String[] names, String[] paths, HashType fileHashType) throws IOException,
+    FileProtocol(String[] names, String[] paths, HashType fileHashType, HashType pieceHashType, int pieceSize) throws IOException,
             NoSuchAlgorithmException {
         if (paths.length == 0)
             throw new IllegalArgumentException("Not allowed to create a FileProtocol with zero paths");
@@ -28,13 +29,13 @@ public class FileProtocol extends Protocol {
 
         PFile[] files = new PFile[paths.length];
         for (int i = 0; i < paths.length; i++)
-            files[i] = new PFile(names[i], paths[i], fileHashType);
+            files[i] = new PFile(names[i], paths[i], fileHashType, pieceHashType, pieceSize);
 
         this.files = files;
     }
 
     FileProtocol(String[] names, String[] paths) throws IOException, NoSuchAlgorithmException {
-        this(names, paths, Protocol.DEFAULT_HASH_TYPE);
+        this(names, paths, Protocol.DEFAULT_HASH_TYPE, Protocol.DEFAULT_HASH_TYPE, Protocol.DEFAULT_PIECE_SIZE);
     }
 
     @Override
