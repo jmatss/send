@@ -34,10 +34,6 @@ public class TextProtocol extends Protocol {
         return this.text;
     }
 
-    /**
-     * Iterator over all files(PFiles)
-     * @return an iterator over all packets to
-     */
     @Override
     public Iterable<byte[]> iter() {
         return () -> new Iterator<byte[]>() {
@@ -56,14 +52,17 @@ public class TextProtocol extends Protocol {
 
                 int start = this.index * sup.pieceSize;
                 int end = start + pieceSize;
-                this.index++;
 
-                return ByteBuffer
-                        .allocate(1 + 4 + pieceSize)
+                byte[] packet = ByteBuffer
+                        .allocate(1 + 4 + 4 + pieceSize)
                         .put((byte) sup.messageType.value())
+                        .putInt(this.index)
                         .putInt(pieceSize)
                         .put(Arrays.copyOfRange(sup.text, start, end))
                         .array();
+
+                this.index++;
+                return packet;
             }
         };
     }
