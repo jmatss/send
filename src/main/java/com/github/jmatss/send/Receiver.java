@@ -11,7 +11,6 @@ import java.io.*;
 import java.net.DatagramPacket;
 import java.net.MulticastSocket;
 import java.net.Socket;
-import java.nio.ByteBuffer;
 import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
 import java.util.Set;
@@ -28,17 +27,18 @@ public class Receiver {
     private static Receiver instance;
 
     private final ScheduledExecutorService executor;
-    private final MulticastSocket socket;
+    private final MulticastSocket multicastSocket;
     private final Set<String> subscribedTopics;
-    private final Lock mutex;
+    private final Lock subscribedTopicsMutex;
     private String downloadPath;
 
-    private Receiver(String downloadPath, MulticastSocket socket, Set<String> subscribedTopics, Lock mutex) {
+    private Receiver(String downloadPath, MulticastSocket multicastSocket, Set<String> subscribedTopics,
+                     Lock subscribedTopicsMutex) {
         this.downloadPath = downloadPath;
         this.executor = ScheduledExecutorServiceSingleton.getInstance();
-        this.socket = socket;
+        this.multicastSocket = multicastSocket;
         this.subscribedTopics = subscribedTopics;
-        this.mutex = mutex;
+        this.subscribedTopicsMutex = subscribedTopicsMutex;
     }
 
     public static Receiver getInstance(String downloadPath, MulticastSocket socket, Set<String> subscribedTopics,
@@ -53,55 +53,70 @@ public class Receiver {
         while (true) {
             try {
                 DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
-                this.socket.receive(packet);
+                this.multicastSocket.receive(packet);
 
-                int packetMessageType = packet.getData()[packet.getOffset()];
-                if (packet.getLength() < Protocol.MIN_PUBLISH_PACKET_SIZE)
+                if (packet.getData().length == 0)
+                    throw new IOException("Received empty packet");
+                else if (packet.getData()[packet.getOffset()] != MessageType.PUBLISH.value())
+                    throw new IncorrectMessageTypeException("Received incorrect MessageType. " +
+                            "Expected: " + MessageType.PUBLISH.value() +
+                            ", got: " + packet.getData()[packet.getOffset()]);
+                else if (packet.getLength() < Protocol.MIN_PUBLISH_PACKET_SIZE)
                     throw new IOException("Received to few byte: " + packet.getLength());
-                else if (packetMessageType != MessageType.PUBLISH.value())
-                    throw new IOException("Received incorrect MessageType. Expected: "
-                            + MessageType.PUBLISH.value() + ", got: " + packetMessageType);
 
                 this.executor.submit(() -> receive(packet));
-            } catch (IOException e) {
+            } catch (IOException | IncorrectMessageTypeException e) {
                 LOGGER.log(Level.SEVERE, "Exception when receiving packet in Receiver: " + e.getMessage());
+            } finally {
+                // TODO: Fix a better way to exit the receiver
+                if (this.multicastSocket.isClosed())
+                    return;
             }
         }
     }
 
     private void receive(DatagramPacket packet) {
-        byte[] content = Arrays.copyOfRange(packet.getData(), packet.getOffset(), packet.getLength());
-        byte topicLength = content[1];
-        String topic;
-        int subMessageType = content[2 + topicLength];
-        int port = ByteBuffer
-                .wrap(content, topicLength + 3, 4)
-                .getInt();
-        byte[] id = Arrays.copyOfRange(content, topicLength + 7, topicLength + 11);
-
+        Socket socket = null;
         try {
-            topic = new String(content, 2, topicLength, Protocol.ENCODING);
-            Socket socket = new Socket(packet.getAddress(), port);
+            byte[] content = Arrays.copyOfRange(packet.getData(), packet.getOffset(), packet.getLength());
+            PublishPacket pp = receivePublish(new ByteArrayInputStream(content));
 
-            PublishPacket publishPacket = new PublishPacket(subMessageType, topicLength, topic, port, id);
+            this.subscribedTopicsMutex.lock();
+            try {
+                if (!this.subscribedTopics.contains(pp.topic))
+                    return;
+            } finally {
+                this.subscribedTopicsMutex.unlock();
+            }
+
+            socket = new Socket(packet.getAddress(), pp.port);
             socket.setSoTimeout(SOCKET_TIMEOUT);
-            OutputStream out = new DataOutputStream(socket.getOutputStream());
-            PushbackInputStream in = new PushbackInputStream(socket.getInputStream());
+            OutputStream socketOut = new DataOutputStream(socket.getOutputStream());
+            PushbackInputStream socketIn = new PushbackInputStream(socket.getInputStream());
 
-            sendRequest(out, publishPacket);
+            sendRequest(socketOut, pp);
 
-            if (subMessageType == MessageType.FILE_PIECE.value())
-                receiveFile(in, out);
-            else if (subMessageType == MessageType.TEXT.value())
-                receiveText(in);
+            if (pp.subMessageType == MessageType.FILE_PIECE.value())
+                receiveFile(socketIn, socketOut);
+            else if (pp.subMessageType == MessageType.TEXT.value())
+                receiveText(socketIn);
             else
-                throw new RuntimeException("Incorrect subMessageType received: " + subMessageType);
+                throw new RuntimeException("Incorrect subMessageType received: " + pp.subMessageType);
 
-        } catch (IOException | RuntimeException | IncorrectHashTypeException | IncorrectMessageTypeException | NoSuchAlgorithmException e) {
+        } catch (IOException | RuntimeException | IncorrectHashTypeException
+                | IncorrectMessageTypeException | NoSuchAlgorithmException e) {
             // TODO: Implement better exception handling.
+            e.printStackTrace();
             LOGGER.log(Level.SEVERE, e.getMessage());
+
+            throw new RuntimeException(e);
         } finally {
-            socket.close();
+            try {
+                if (socket != null)
+                    socket.close();
+            } catch (IOException e) {
+                LOGGER.log(Level.SEVERE, "2" + e.getMessage());
+            }
         }
     }
 
