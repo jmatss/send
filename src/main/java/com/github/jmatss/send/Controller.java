@@ -96,9 +96,8 @@ public class Controller {
      * publishing before the timeout.
      * @throws IncorrectMessageTypeException thrown if a protocol containing a disallowed MessageType is given.
      */
-    // TODO: Create listening socket in the beginning of this function and take port from it
-    //  and send to getPublishPacket().
-    public String publish(Protocol protocol, String topic, long timeout, long interval) throws IncorrectMessageTypeException, IOException {
+    public String publish(Protocol protocol, String topic, long timeout, long interval)
+            throws IncorrectMessageTypeException, IOException {
         verifyProtocol(protocol);
         if (timeout < 0)
             throw new IllegalArgumentException("Timeout set to less than zero.");
@@ -160,7 +159,6 @@ public class Controller {
         return topic;
     }
 
-
     // FIXME: If someone does a manual cancel, and then re-published on the same topic,
     //  the "timeout-cancel" can cancel the newly published topic.
     private void cancelPublish(String topic) {
@@ -187,7 +185,7 @@ public class Controller {
     public void send(Socket socket, Protocol protocol) {
         try {
             PushbackInputStream in = new PushbackInputStream(socket.getInputStream());
-            OutputStream out = new DataOutputStream(socket.getOutputStream());
+            OutputStream out = socket.getOutputStream();
 
             RequestPacket rp = receiveRequest(in);
             this.mutexPublishedTopics.lock();
@@ -222,23 +220,18 @@ public class Controller {
             sendFileInfo(out, pfile.getFileInfoPacket());
 
             if (isYes(in)) {
-                // TODO: synchronize this index with the index inside filePiece.
-                int index = 0;
-                for (byte[] filePiece : pfile.packetIterator()) {
+                for (byte[] filePiece : pfile.packetIterator())
                     sendFilePiece(out, filePiece);
-                    index++;
-                }
-                sendDone(out, index);
+                sendDone(out);
             }
         }
-        sendDone(out, 0);
+        sendDone(out);
     }
 
     private void sendText(OutputStream out, TextProtocol textProtocol) throws IOException {
-        for (byte[] textPacket : textProtocol.iter()) {
+        for (byte[] textPacket : textProtocol.iter())
             ProtocolActions.sendText(out, textPacket);
-        }
-        sendDone(out, 0);
+        sendDone(out);
     }
 
     /**
@@ -263,9 +256,7 @@ public class Controller {
     private void cancelSubscribe(String topic) {
         this.mutexSubscribedTopics.lock();
         try {
-            if (this.subscribedTopics.contains(topic)) {
-                this.subscribedTopics.remove(topic);
-            }
+            this.subscribedTopics.remove(topic);
         } finally {
             this.mutexSubscribedTopics.unlock();
         }

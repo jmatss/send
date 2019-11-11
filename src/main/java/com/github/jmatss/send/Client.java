@@ -24,7 +24,9 @@ public class Client {
                     continue;
                 }
 
-                switch (input.getBytes(Protocol.ENCODING)[0]) {
+                String[] cmd = input.split(" ");
+
+                switch (cmd[0].getBytes(Protocol.ENCODING)[0]) {
                     case 'q':
                         System.out.println("QUIT");
                         return;
@@ -35,10 +37,16 @@ public class Client {
                         System.out.println(input);
                         break;
                     case 's':   // subscribe
-                        System.out.println("SUBSCRIBE");
+                        if (cmd.length != 2) {
+                            System.out.println("Incorrect input");
+                            usage();
+                            break;
+                        }
+
+                        controller.subscribe(cmd[1]);
                         break;
                     default:
-                        usage(args);
+                        usage();
                 }
             }
         } finally {
@@ -46,13 +54,10 @@ public class Client {
         }
     }
 
-    static void usage(String[] args) {
-        System.out.println(
-                String.format(
-                        "%-7s %s %s",
-                        "usage", args[0], "test"
-                )
-        );
+    static void usage() {
+        System.out.println(String.format("%-7s %s", "usage", "list"));
+        System.out.println(String.format("%-7s %s", "", "publish <TODO>"));
+        System.out.println(String.format("%-7s %s", "", "subscribe <topic>"));
     }
 
 }
