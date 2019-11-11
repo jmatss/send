@@ -7,7 +7,7 @@ Packet formats:
         | Topic Length (1 byte)
         | Topic ("Topic Length" bytes)
         | SubMessageType (1 byte)       //
-        | Port (4 bytes) (that this publisher listens of for TCP connection)
+        | Port (4 bytes) (that this publisher listens on for TCP connection)
         | Random ID Number (4 bytes)    // unique
 
     if (MessageType::REQUEST):
