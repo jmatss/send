@@ -80,7 +80,7 @@ public class ReceiverTest {
                     expectedTopicLength + 6));
 
             // Send done message immediately before sending text.
-            ProtocolActions.sendDone(out, 0);
+            ProtocolActions.sendDone(out);
         } finally {
             if (clientSocket != null)
                 clientSocket.close();

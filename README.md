@@ -40,13 +40,8 @@ Packet formats:
         | HashType (1 byte)
         | Hash-digest (of this piece) (x bytes) (can be zero bytes if HashType::None)
         
-    if (MessageType::YES || MessageType::NO):
+    if (MessageType::YES || MessageType::NO || MessageType::DONE):
         MessageType (1 byte)
-        
-    // FIXME: weird to always send index with done
-    if (MessageType::DONE):
-        MessageType (1 byte)
-        | Index (4 bytes)
 
 Communication:
 

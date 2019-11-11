@@ -127,7 +127,7 @@ public class Receiver {
         final int MAX_ITERATIONS = 1 << 16;
         int iterations = 0;
         while (true) {
-            if (isDone(in, 0))
+            if (isDone(in))
                 break;
             else if (iterations >= MAX_ITERATIONS)
                 break;
@@ -142,7 +142,7 @@ public class Receiver {
 
                 try (OutputStream fileWriter = new FileOutputStream(file)) {
                     int index = 0;
-                    while (!isDone(in, index)) {
+                    while (!isDone(in)) {
                         fileWriter.write(receiveFilePiece(in, index));
                         index++;
                     }
@@ -165,7 +165,7 @@ public class Receiver {
     // TODO: Make an local "out" where the received text is to be written.
     private void receiveText(PushbackInputStream in) throws IOException, IncorrectMessageTypeException {
         int index = 0;
-        while (!isDone(in, 0)) {
+        while (!isDone(in)) {
             String text = ProtocolActions.receiveText(in, index);
             // FIXME: temp out
             System.out.print(text);

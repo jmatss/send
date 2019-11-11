@@ -21,17 +21,14 @@ public class ProtocolActions {
      * the clients haven't gone out of sync.
      *
      * @param in         the input stream of the socket.
-     * @param localIndex the current local index (i.e. which piece it is currently about to received).
      * @return a boolean indicating if the packet is a done packet or not.
      * @throws IOException if it is unable to read from the input stream.
      */
-    public static boolean isDone(PushbackInputStream in, int localIndex) throws IOException {
-        int messageType;
-        if ((messageType = in.read()) == MessageType.DONE.value()) {
-            int remoteIndex = readInt(in);
-            if (localIndex != remoteIndex)
-                throw new IOException("Index received from done packet is different from the local index." +
-                        " Local index: " + localIndex + ", remote index: " + remoteIndex);
+    public static boolean isDone(PushbackInputStream in) throws IOException {
+        // Read and remove the first byte from the input stream.
+        // If it isn't a DONE message, put it back into the stream.
+        int messageType = in.read();
+        if (messageType == MessageType.DONE.value()) {
             return true;
         } else {
             in.unread(messageType);
@@ -56,11 +53,8 @@ public class ProtocolActions {
 
     // TODO: Make these "send...Packet" functions uniform. Ex. by always giving them some sort
     //  of "packet-class" instead of the current different second arguments.
-    public static void sendDone(OutputStream out, int index) throws IOException {
-        out.write(ByteBuffer.allocate(5)
-                .put((byte) MessageType.DONE.value())
-                .putInt(index)
-                .array());
+    public static void sendDone(OutputStream out) throws IOException {
+        out.write((byte) MessageType.DONE.value());
     }
 
     public static void sendRequest(OutputStream out, PublishPacket pp) throws IOException {

@@ -220,23 +220,18 @@ public class Controller {
             sendFileInfo(out, pfile.getFileInfoPacket());
 
             if (isYes(in)) {
-                // TODO: synchronize this index with the index inside filePiece.
-                int index = 0;
-                for (byte[] filePiece : pfile.packetIterator()) {
+                for (byte[] filePiece : pfile.packetIterator())
                     sendFilePiece(out, filePiece);
-                    index++;
-                }
-                sendDone(out, index);
+                sendDone(out);
             }
         }
-        sendDone(out, 0);
+        sendDone(out);
     }
 
     private void sendText(OutputStream out, TextProtocol textProtocol) throws IOException {
-        for (byte[] textPacket : textProtocol.iter()) {
+        for (byte[] textPacket : textProtocol.iter())
             ProtocolActions.sendText(out, textPacket);
-        }
-        sendDone(out, 0);
+        sendDone(out);
     }
 
     /**
