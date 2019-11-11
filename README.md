@@ -48,7 +48,7 @@ Packet formats:
         MessageType (1 byte)
         | Index (4 bytes)
 
-Com formats:
+Communication:
 
     *** FILE COM ***
     A                   B
@@ -65,7 +65,7 @@ Com formats:
     ...
     DONE ->
 
-        *** TEXT COM ***
+    *** TEXT COM ***
     A                   B
     Publish ->          (<- Subscribe)
     (Publish ->)        <- Subscribe
