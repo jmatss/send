@@ -21,6 +21,7 @@ public class Controller {
     private static final Logger LOGGER = Logger.getLogger(Controller.class.getName());
     private ScheduledExecutorService executor;
     private MulticastSocket socket;
+    private Receiver receiver;
     private InetAddress ip;
     private int port;
 
@@ -32,13 +33,13 @@ public class Controller {
     private Set<String> subscribedTopics;
     private Lock mutexSubscribedTopics;
 
-    Controller(String ip, int port) throws IOException {
-        init(ip, port);
+    Controller(String downloadPath, MulticastSocket socket, String ip, int port) throws IOException {
+        init(downloadPath, socket, ip, port);
     }
 
-    Controller(int port, boolean ipv6) throws IOException {
+    Controller(String downloadPath, MulticastSocket socket, int port, boolean ipv6) throws IOException {
         try {
-            init(ipv6 ? Protocol.DEFAULT_MULTICAST_IPV6 : Protocol.DEFAULT_MULTICAST_IPV4, port);
+            init(downloadPath, socket, ipv6 ? Protocol.DEFAULT_MULTICAST_IPV6 : Protocol.DEFAULT_MULTICAST_IPV4, port);
         } catch (UnknownHostException e) {
             // Should never happen since the default group is a hardcoded correct address.
             throw new RuntimeException(e);
@@ -46,16 +47,16 @@ public class Controller {
     }
 
     // Defaults to ipv4
-    Controller(int port) throws IOException {
-        this(port, false);
+    Controller(String downloadPath, MulticastSocket socket, int port) throws IOException {
+        this(downloadPath, socket, port, false);
     }
 
     // Defaults to ipv4
-    Controller() throws IOException {
-        this(Protocol.DEFAULT_PORT, false);
+    Controller(String downloadPath, MulticastSocket socket) throws IOException {
+        this(downloadPath, socket, Protocol.DEFAULT_PORT, false);
     }
 
-    private void init(String ip, int port) throws IOException {
+    private void init(String downloadPath, MulticastSocket socket, String ip, int port) throws IOException {
         if (port > (1 << 16) - 1 || port < 0)
             throw new IllegalArgumentException("Incorrect port number: " + port);
         else if (!InetAddress.getByName(ip).isMulticastAddress())
@@ -70,8 +71,18 @@ public class Controller {
 
         this.ip = InetAddress.getByName(ip);
         this.port = port;
-        this.socket = new MulticastSocket(this.port);
+        this.socket = socket;
         this.socket.joinGroup(this.ip);
+
+        this.receiver = Receiver.getInstance(downloadPath, this.socket, this.subscribedTopics,
+                this.mutexSubscribedTopics);
+        this.executor.submit(this.receiver::start);
+    }
+
+    public List<Runnable> shutdown() throws IOException {
+        this.socket.leaveGroup(this.ip);
+        this.socket.close();
+        return this.executor.shutdownNow();
     }
 
     /**
@@ -174,11 +185,9 @@ public class Controller {
     }
 
     public void send(Socket socket, Protocol protocol) {
-        OutputStream out;
-        PushbackInputStream in;
         try {
-            in = new PushbackInputStream(socket.getInputStream());
-            out = new DataOutputStream(socket.getOutputStream());
+            PushbackInputStream in = new PushbackInputStream(socket.getInputStream());
+            OutputStream out = new DataOutputStream(socket.getOutputStream());
 
             RequestPacket rp = receiveRequest(in);
             this.mutexPublishedTopics.lock();
