@@ -74,3 +74,4 @@ Com formats:
 
  TODO:
   compression of files
+  encryption (tls or quic)
