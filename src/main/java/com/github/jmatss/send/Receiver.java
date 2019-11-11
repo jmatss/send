@@ -78,7 +78,8 @@ public class Receiver {
     private void receive(DatagramPacket packet) {
         Socket socket = null;
         try {
-            byte[] content = Arrays.copyOfRange(packet.getData(), packet.getOffset(), packet.getLength());
+            byte[] content = Arrays.copyOfRange(packet.getData(), packet.getOffset(),
+                    packet.getOffset() + packet.getLength());
             PublishPacket pp = receivePublish(new ByteArrayInputStream(content));
 
             this.subscribedTopicsMutex.lock();
