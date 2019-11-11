@@ -5,7 +5,7 @@ import com.github.jmatss.send.exception.IncorrectMessageTypeException;
 import com.github.jmatss.send.packet.FileInfoPacket;
 import com.github.jmatss.send.packet.PublishPacket;
 import com.github.jmatss.send.protocol.Protocol;
-import com.github.jmatss.send.protocol.ProtocolActions;
+import com.github.jmatss.send.protocol.ProtocolSocket;
 
 import java.io.*;
 import java.net.DatagramPacket;
@@ -18,8 +18,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.locks.Lock;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-
-import static com.github.jmatss.send.protocol.ProtocolActions.*;
 
 public class Receiver {
     public static final int SOCKET_TIMEOUT = 5000; // ms
@@ -76,11 +74,12 @@ public class Receiver {
     }
 
     private void receive(DatagramPacket packet) {
-        Socket socket = null;
+        byte[] content = Arrays.copyOfRange(packet.getData(), packet.getOffset(),
+                packet.getOffset() + packet.getLength());
+
+        ProtocolSocket pSocket = null;
         try {
-            byte[] content = Arrays.copyOfRange(packet.getData(), packet.getOffset(),
-                    packet.getOffset() + packet.getLength());
-            PublishPacket pp = receivePublish(new ByteArrayInputStream(content));
+            PublishPacket pp = new ProtocolSocket(new ByteArrayInputStream(content)).receivePublish();
 
             this.subscribedTopicsMutex.lock();
             try {
@@ -90,17 +89,15 @@ public class Receiver {
                 this.subscribedTopicsMutex.unlock();
             }
 
-            socket = new Socket(packet.getAddress(), pp.port);
-            socket.setSoTimeout(SOCKET_TIMEOUT);
-            OutputStream socketOut = new DataOutputStream(socket.getOutputStream());
-            PushbackInputStream socketIn = new PushbackInputStream(socket.getInputStream());
 
-            sendRequest(socketOut, pp);
+            pSocket = new ProtocolSocket(new Socket(packet.getAddress(), pp.port));
+            pSocket.getSocket().setSoTimeout(SOCKET_TIMEOUT);
 
+            pSocket.sendRequest(pp);
             if (pp.subMessageType == MessageType.FILE_PIECE.value())
-                receiveFile(socketIn, socketOut);
+                receiveFile(pSocket);
             else if (pp.subMessageType == MessageType.TEXT.value())
-                receiveText(socketIn);
+                receiveText(pSocket);
             else
                 throw new RuntimeException("Incorrect subMessageType received: " + pp.subMessageType);
 
@@ -113,37 +110,32 @@ public class Receiver {
             throw new RuntimeException(e);
         } finally {
             try {
-                if (socket != null)
-                    socket.close();
+                if (pSocket != null)
+                    pSocket.close();
             } catch (IOException e) {
-                LOGGER.log(Level.SEVERE, "2" + e.getMessage());
+                LOGGER.log(Level.SEVERE, e.getMessage());
             }
         }
     }
 
-    private void receiveFile(PushbackInputStream in, OutputStream out)
+    private void receiveFile(ProtocolSocket pSocket)
             throws IOException, IncorrectHashTypeException, IncorrectMessageTypeException, NoSuchAlgorithmException {
-        // FIXME: Temporary max iteration.
-        final int MAX_ITERATIONS = 1 << 16;
-        int iterations = 0;
         while (true) {
-            if (isDone(in))
-                break;
-            else if (iterations >= MAX_ITERATIONS)
+            if (pSocket.isDone())
                 break;
 
-            FileInfoPacket fileInfoPacket = receiveFileInfo(in);
+            FileInfoPacket fileInfoPacket = pSocket.receiveFileInfo();
 
             // If the file already exists on this local host, don't download it again.
             // TODO: More checking, ex see if hash is the same; if not, download with another name.
             File file = new File(this.downloadPath + fileInfoPacket.name);
             if (!file.exists()) {
-                sendYes(out);
+                pSocket.sendYes();
 
                 try (OutputStream fileWriter = new FileOutputStream(file)) {
                     int index = 0;
-                    while (!isDone(in)) {
-                        fileWriter.write(receiveFilePiece(in, index));
+                    while (!pSocket.isDone()) {
+                        fileWriter.write(pSocket.receiveFilePiece(index));
                         index++;
                     }
 
@@ -155,18 +147,16 @@ public class Receiver {
                     }
                 }
             } else {
-                sendNo(out);
+                pSocket.sendNo();
             }
-
-            iterations++;
         }
     }
 
-    // TODO: Make an local "out" where the received text is to be written.
-    private void receiveText(PushbackInputStream in) throws IOException, IncorrectMessageTypeException {
+    // TODO: Make a local "out" where the received text is to be written.
+    private void receiveText(ProtocolSocket pSocket) throws IOException, IncorrectMessageTypeException {
         int index = 0;
-        while (!isDone(in)) {
-            String text = ProtocolActions.receiveText(in, index);
+        while (!pSocket.isDone()) {
+            String text = pSocket.receiveText(index);
             // FIXME: temp out
             System.out.print(text);
             index++;
