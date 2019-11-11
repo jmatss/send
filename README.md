@@ -1,5 +1,7 @@
 # work in progress
 
+A simple program for sending/receiving files/text on a local network.
+
 Packet formats:
 
     if (MessageType::PUBLISH && (SubMessageType::TEXT || SubMessageType::FILE_PIECE)):
@@ -46,7 +48,7 @@ Packet formats:
         MessageType (1 byte)
         | Index (4 bytes)
 
-Com formats:
+Communication:
 
     *** FILE COM ***
     A                   B
@@ -63,7 +65,7 @@ Com formats:
     ...
     DONE ->
 
-        *** TEXT COM ***
+    *** TEXT COM ***
     A                   B
     Publish ->          (<- Subscribe)
     (Publish ->)        <- Subscribe
@@ -72,5 +74,8 @@ Com formats:
     ...
     DONE ->
 
- TODO:
-  compression of files
+TODO:
+* Compression of files
+* Encryption (tls or quic)
+* Make ProtocolAction to a proper class that takes a socket as input instead of using it's static methods
+* Make Receiver cache IDs from the PUBLISH packets so that it doesn't request the same packet several times
