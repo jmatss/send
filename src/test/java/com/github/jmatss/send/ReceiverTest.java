@@ -2,15 +2,12 @@ package com.github.jmatss.send;
 
 import com.github.jmatss.send.mock.DummyMulticastSocket;
 import com.github.jmatss.send.protocol.Protocol;
-import com.github.jmatss.send.protocol.ProtocolActions;
+import com.github.jmatss.send.protocol.ProtocolSocket;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
 import java.net.MulticastSocket;
 import java.net.ServerSocket;
-import java.net.Socket;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.Set;
@@ -47,15 +44,13 @@ public class ReceiverTest {
                 .array();
 
         MulticastSocket multicastSocket = new DummyMulticastSocket(packet_expected, host, 1);
-        Socket clientSocket = null;
+        ProtocolSocket pSocket = null;
         ScheduledExecutorService executor = ScheduledExecutorServiceSingleton.getInstance();
         try {
             Receiver receiver = Receiver.getInstance(path, multicastSocket, subscribedTopics, mutex);
             executor.submit(receiver::start);
 
-            clientSocket = serverSocket.accept();
-            InputStream in = clientSocket.getInputStream();
-            OutputStream out = clientSocket.getOutputStream();
+            pSocket = new ProtocolSocket(serverSocket.accept());
 
             MessageType expectedMessageType = MessageType.REQUEST;
             int expectedTopicLength = topicBytes.length;
@@ -63,7 +58,7 @@ public class ReceiverTest {
             byte[] expectedId = id;
 
             byte[] receivedRequestPacket = new byte[1 + 1 + expectedTopicLength + 4];
-            int n = in.read(receivedRequestPacket);
+            int n = pSocket.getInputStream().read(receivedRequestPacket);
             if (n == -1)
                 fail("Received EOF while reading request packet.");
             else if (n != receivedRequestPacket.length)
@@ -80,10 +75,10 @@ public class ReceiverTest {
                     expectedTopicLength + 6));
 
             // Send done message immediately before sending text.
-            ProtocolActions.sendDone(out);
+            pSocket.sendDone();
         } finally {
-            if (clientSocket != null)
-                clientSocket.close();
+            if (pSocket != null)
+                pSocket.close();
             serverSocket.close();
             multicastSocket.close();
             if (!executor.isShutdown())

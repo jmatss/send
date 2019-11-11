@@ -14,7 +14,7 @@ import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import static com.github.jmatss.send.protocol.ProtocolActions.*;
+import static com.github.jmatss.send.protocol.ProtocolSocket.*;
 
 // TODO: Fix limitation of only one ip/port(?)
 public class Controller {
@@ -178,16 +178,14 @@ public class Controller {
     private void listener(ServerSocket serverSocket, Protocol protocol) throws IOException {
         while (true) {
             Socket clientSocket = serverSocket.accept();
-            this.executor.submit(() -> send(clientSocket, protocol));
+            ProtocolSocket pSocket = new ProtocolSocket(clientSocket);
+            this.executor.submit(() -> send(pSocket, protocol));
         }
     }
 
-    public void send(Socket socket, Protocol protocol) {
+    public void send(ProtocolSocket pSocket, Protocol protocol) {
         try {
-            PushbackInputStream in = new PushbackInputStream(socket.getInputStream());
-            OutputStream out = socket.getOutputStream();
-
-            RequestPacket rp = receiveRequest(in);
+            RequestPacket rp = pSocket.receiveRequest();
             this.mutexPublishedTopics.lock();
             try {
                 if (!this.publishedTopics.containsKey(rp.topic))
@@ -197,9 +195,9 @@ public class Controller {
             }
 
             if (protocol instanceof FileProtocol)
-                sendFile(in, out, (FileProtocol) protocol);
+                sendFile(pSocket, (FileProtocol) protocol);
             else if (protocol instanceof TextProtocol)
-                sendText(out, (TextProtocol) protocol);
+                sendText(pSocket, (TextProtocol) protocol);
             else
                 throw new RuntimeException("Incorrect protocol class");
 
@@ -207,31 +205,31 @@ public class Controller {
             LOGGER.log(Level.SEVERE, e.getMessage());
         } finally {
             try {
-                socket.close();
+                pSocket.close();
             } catch (IOException e) {
                 LOGGER.log(Level.SEVERE, "Unable to close socket: " + e.getMessage());
             }
         }
     }
 
-    private void sendFile(InputStream in, OutputStream out, FileProtocol fileProtocol)
+    private void sendFile(ProtocolSocket pSocket, FileProtocol fileProtocol)
             throws IOException, NoSuchAlgorithmException {
         for (PFile pfile : fileProtocol.iter()) {
-            sendFileInfo(out, pfile.getFileInfoPacket());
+            pSocket.sendFileInfo(pfile.getFileInfoPacket());
 
-            if (isYes(in)) {
+            if (pSocket.isYes()) {
                 for (byte[] filePiece : pfile.packetIterator())
-                    sendFilePiece(out, filePiece);
-                sendDone(out);
+                    pSocket.sendFilePiece(filePiece);
+                pSocket.sendDone();
             }
         }
-        sendDone(out);
+        pSocket.sendDone();
     }
 
-    private void sendText(OutputStream out, TextProtocol textProtocol) throws IOException {
+    private void sendText(ProtocolSocket pSocket, TextProtocol textProtocol) throws IOException {
         for (byte[] textPacket : textProtocol.iter())
-            ProtocolActions.sendText(out, textPacket);
-        sendDone(out);
+            pSocket.sendText(textPacket);
+        pSocket.sendDone();
     }
 
     /**
