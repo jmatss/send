@@ -26,7 +26,7 @@ public class DummyMulticastSocket extends MulticastSocket {
                 try {
                     Thread.sleep(1000);
                 } catch (InterruptedException e) {
-                    break;
+                    return;
                 }
             }
         }
