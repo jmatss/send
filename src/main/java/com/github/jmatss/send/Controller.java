@@ -185,7 +185,7 @@ public class Controller {
     public void send(Socket socket, Protocol protocol) {
         try {
             PushbackInputStream in = new PushbackInputStream(socket.getInputStream());
-            OutputStream out = new DataOutputStream(socket.getOutputStream());
+            OutputStream out = socket.getOutputStream();
 
             RequestPacket rp = receiveRequest(in);
             this.mutexPublishedTopics.lock();
