@@ -251,11 +251,11 @@ public class ProtocolActions {
 
     private static int readInt(InputStream in) throws IOException {
         byte[] buf = readN(in, 4);
-        return ByteBuffer.allocate(4).put(buf).getInt();
+        return ByteBuffer.allocate(4).put(buf).getInt(0);
     }
 
     private static long readLong(InputStream in) throws IOException {
         byte[] buf = readN(in, 8);
-        return ByteBuffer.allocate(8).put(buf).getLong();
+        return ByteBuffer.allocate(8).put(buf).getLong(0);
     }
 }
