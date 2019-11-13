@@ -3,15 +3,18 @@ package com.github.jmatss.send;
 import com.github.jmatss.send.exception.IncorrectMessageTypeException;
 import com.github.jmatss.send.packet.RequestPacket;
 import com.github.jmatss.send.protocol.*;
+import com.github.jmatss.send.util.ClosableWrapper;
 import com.github.jmatss.send.util.ScheduledExecutorServiceSingleton;
 
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.SocketException;
 import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.locks.Lock;
 import java.util.logging.Level;
@@ -22,16 +25,16 @@ public class Sender {
     private static Sender instance;
 
     private final ScheduledExecutorService executor;
-    private final Map<String, List<Future<?>>> publishedTopics;
+    private final Map<String, ClosableWrapper> publishedTopics;
     private final Lock mutexPublishedTopics;
 
-    private Sender(Map<String, List<Future<?>>> publishedTopics, Lock mutexPublishedTopics) {
+    private Sender(Map<String, ClosableWrapper> publishedTopics, Lock mutexPublishedTopics) {
         this.executor = ScheduledExecutorServiceSingleton.getInstance();
         this.publishedTopics = publishedTopics;
         this.mutexPublishedTopics = mutexPublishedTopics;
     }
 
-    public static Sender getInstance(Map<String, List<Future<?>>> publishedTopics, Lock mutexPublishedTopics) {
+    public static Sender getInstance(Map<String, ClosableWrapper> publishedTopics, Lock mutexPublishedTopics) {
         if (Sender.instance == null)
             Sender.instance = new Sender(publishedTopics, mutexPublishedTopics);
         return Sender.instance;
@@ -39,16 +42,20 @@ public class Sender {
 
     // TODO: fix so that the "send" function sends all packets before exiting if the task gets a cancel.
     public void listen(ServerSocket serverSocket, Protocol protocol) throws IOException {
-        while (true) {
-            Socket clientSocket = serverSocket.accept();
-            ProtocolSocket pSocket = new ProtocolSocket(clientSocket);
-            this.executor.submit(() -> send(pSocket, protocol));
+        try {
+            while (true) {
+                Socket clientSocket = serverSocket.accept();
+                SocketWrapper socketWrapper = new SocketWrapper(clientSocket);
+                this.executor.submit(() -> send(socketWrapper, protocol));
+            }
+        } catch (SocketException e) {
+            LOGGER.log(Level.INFO, "Listener closed.");
         }
     }
 
-    public void send(ProtocolSocket pSocket, Protocol protocol) {
+    public void send(SocketWrapper socketWrapper, Protocol protocol) {
         try {
-            RequestPacket rp = pSocket.receiveRequest();
+            RequestPacket rp = socketWrapper.receiveRequest();
             this.mutexPublishedTopics.lock();
             try {
                 if (!this.publishedTopics.containsKey(rp.topic))
@@ -58,9 +65,9 @@ public class Sender {
             }
 
             if (protocol instanceof FileProtocol)
-                sendFile(pSocket, (FileProtocol) protocol);
+                sendFile(socketWrapper, (FileProtocol) protocol);
             else if (protocol instanceof TextProtocol)
-                sendText(pSocket, (TextProtocol) protocol);
+                sendText(socketWrapper, (TextProtocol) protocol);
             else
                 throw new RuntimeException("Incorrect protocol class");
 
@@ -68,30 +75,30 @@ public class Sender {
             LOGGER.log(Level.SEVERE, e.getMessage());
         } finally {
             try {
-                pSocket.close();
+                socketWrapper.close();
             } catch (IOException e) {
                 LOGGER.log(Level.SEVERE, "Unable to close socket: " + e.getMessage());
             }
         }
     }
 
-    private void sendFile(ProtocolSocket pSocket, FileProtocol fileProtocol)
+    private void sendFile(SocketWrapper socketWrapper, FileProtocol fileProtocol)
             throws IOException, NoSuchAlgorithmException {
         for (PFile pfile : fileProtocol.iter()) {
-            pSocket.sendFileInfo(pfile.getFileInfoPacket());
+            socketWrapper.sendFileInfo(pfile.getFileInfoPacket());
 
-            if (pSocket.isYes()) {
+            if (socketWrapper.isYes()) {
                 for (byte[] filePiece : pfile.packetIterator())
-                    pSocket.sendFilePiece(filePiece);
-                pSocket.sendDone();
+                    socketWrapper.sendFilePiece(filePiece);
+                socketWrapper.sendDone();
             }
         }
-        pSocket.sendDone();
+        socketWrapper.sendDone();
     }
 
-    private void sendText(ProtocolSocket pSocket, TextProtocol textProtocol) throws IOException {
+    private void sendText(SocketWrapper socketWrapper, TextProtocol textProtocol) throws IOException {
         for (byte[] textPacket : textProtocol.iter())
-            pSocket.sendText(textPacket);
-        pSocket.sendDone();
+            socketWrapper.sendText(textPacket);
+        socketWrapper.sendDone();
     }
 }

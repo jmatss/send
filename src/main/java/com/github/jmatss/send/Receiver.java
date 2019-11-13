@@ -5,7 +5,7 @@ import com.github.jmatss.send.exception.IncorrectMessageTypeException;
 import com.github.jmatss.send.packet.FileInfoPacket;
 import com.github.jmatss.send.packet.PublishPacket;
 import com.github.jmatss.send.protocol.Protocol;
-import com.github.jmatss.send.protocol.ProtocolSocket;
+import com.github.jmatss.send.protocol.SocketWrapper;
 import com.github.jmatss.send.type.MessageType;
 import com.github.jmatss.send.util.ScheduledExecutorServiceSingleton;
 
@@ -13,8 +13,13 @@ import java.io.*;
 import java.net.DatagramPacket;
 import java.net.MulticastSocket;
 import java.net.Socket;
+import java.nio.ByteBuffer;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.locks.Lock;
@@ -23,6 +28,7 @@ import java.util.logging.Logger;
 
 public class Receiver {
     public static final int SOCKET_TIMEOUT = 5000; // ms
+    public static final int MAX_ID_CACHE_SIZE = 1 << 20;
     private static final Logger LOGGER = Logger.getLogger(Receiver.class.getName());
     private static Receiver instance;
 
@@ -30,18 +36,20 @@ public class Receiver {
     private final MulticastSocket multicastSocket;
     private final Set<String> subscribedTopics;
     private final Lock mutexSubscribedTopics;
-    private String downloadPath;
+    private final Set<ByteBuffer> idCache;  // Caches downloaded ID's so they dont get downloaded again
+    private Path downloadPath;
 
-    private Receiver(String downloadPath, MulticastSocket multicastSocket, Set<String> subscribedTopics,
+    private Receiver(Path downloadPath, MulticastSocket multicastSocket, Set<String> subscribedTopics,
                      Lock mutexSubscribedTopics) {
         this.downloadPath = downloadPath;
         this.executor = ScheduledExecutorServiceSingleton.getInstance();
         this.multicastSocket = multicastSocket;
         this.subscribedTopics = subscribedTopics;
         this.mutexSubscribedTopics = mutexSubscribedTopics;
+        this.idCache = Collections.synchronizedSet(new HashSet<>());
     }
 
-    public static Receiver getInstance(String downloadPath, MulticastSocket socket, Set<String> subscribedTopics,
+    public static Receiver getInstance(Path downloadPath, MulticastSocket socket, Set<String> subscribedTopics,
                                        Lock mutex) {
         if (Receiver.instance == null)
             Receiver.instance = new Receiver(downloadPath, socket, subscribedTopics, mutex);
@@ -67,42 +75,45 @@ public class Receiver {
                 this.executor.submit(() -> receive(packet));
             } catch (IOException | IncorrectMessageTypeException e) {
                 LOGGER.log(Level.SEVERE, "Exception when receiving packet in Receiver: " + e.getMessage());
-            } finally {
-                // TODO: Fix a better way to exit the receiver
-                if (this.multicastSocket.isClosed())
-                    return;
             }
+            // TODO: Fix a better way to exit the receiver
+            if (this.multicastSocket.isClosed())
+                return;
         }
+
     }
 
     private void receive(DatagramPacket packet) {
         byte[] content = Arrays.copyOfRange(packet.getData(), packet.getOffset(),
                 packet.getOffset() + packet.getLength());
 
-        ProtocolSocket pSocket = null;
+        SocketWrapper socketWrapper = null;
         try {
-            PublishPacket pp = new ProtocolSocket(new ByteArrayInputStream(content)).receivePublish();
+            PublishPacket pp = new SocketWrapper(new ByteArrayInputStream(content)).receivePublish();
 
             this.mutexSubscribedTopics.lock();
             try {
-                if (!this.subscribedTopics.contains(pp.topic))
+                if (!this.subscribedTopics.contains(pp.topic) || this.idCache.contains(ByteBuffer.wrap(pp.id)))
                     return;
             } finally {
                 this.mutexSubscribedTopics.unlock();
             }
 
+            socketWrapper = new SocketWrapper(new Socket(packet.getAddress(), pp.port));
+            socketWrapper.getSocket().setSoTimeout(SOCKET_TIMEOUT);
 
-            pSocket = new ProtocolSocket(new Socket(packet.getAddress(), pp.port));
-            pSocket.getSocket().setSoTimeout(SOCKET_TIMEOUT);
-
-            pSocket.sendRequest(pp);
+            socketWrapper.sendRequest(pp);
             if (pp.subMessageType == MessageType.FILE_PIECE.value())
-                receiveFile(pSocket);
+                receiveFile(socketWrapper);
             else if (pp.subMessageType == MessageType.TEXT.value())
-                receiveText(pSocket);
+                receiveText(socketWrapper);
             else
                 throw new RuntimeException("Incorrect subMessageType received: " + pp.subMessageType);
 
+            // TODO: Better way to to make sure the idCache doesn't overflow (?)
+            if (this.idCache.size() > MAX_ID_CACHE_SIZE)
+                this.idCache.clear();
+            this.idCache.add(ByteBuffer.wrap(pp.id));
         } catch (IOException | RuntimeException | IncorrectHashTypeException
                 | IncorrectMessageTypeException | NoSuchAlgorithmException e) {
             // TODO: Implement better exception handling.
@@ -112,57 +123,61 @@ public class Receiver {
             throw new RuntimeException(e);
         } finally {
             try {
-                if (pSocket != null)
-                    pSocket.close();
+                if (socketWrapper != null)
+                    socketWrapper.close();
             } catch (IOException e) {
                 LOGGER.log(Level.SEVERE, e.getMessage());
             }
         }
     }
 
-    private void receiveFile(ProtocolSocket pSocket)
+    private void receiveFile(SocketWrapper socketWrapper)
             throws IOException, IncorrectHashTypeException, IncorrectMessageTypeException, NoSuchAlgorithmException {
         while (true) {
-            if (pSocket.isDone())
+            if (socketWrapper.isDone())
                 break;
 
-            FileInfoPacket fileInfoPacket = pSocket.receiveFileInfo();
+            FileInfoPacket fileInfoPacket = socketWrapper.receiveFileInfo();
 
             // If the file already exists on this local host, don't download it again.
             // TODO: More checking, ex see if hash is the same; if not, download with another name.
-            File file = new File(this.downloadPath + fileInfoPacket.name);
+            File file = Paths.get(this.downloadPath.toString(), fileInfoPacket.name).toFile();
             if (!file.exists()) {
-                pSocket.sendYes();
+                socketWrapper.sendYes();
 
+                if (!file.getParentFile().mkdirs() && !file.getParentFile().exists())
+                    throw new IOException("Unable to create folders " + file.getParentFile().toString());
                 try (OutputStream fileWriter = new FileOutputStream(file)) {
                     int index = 0;
-                    while (!pSocket.isDone()) {
-                        fileWriter.write(pSocket.receiveFilePiece(index));
+                    while (!socketWrapper.isDone()) {
+                        fileWriter.write(socketWrapper.receiveFilePiece(index));
                         index++;
                     }
 
                     if (file.length() != fileInfoPacket.fileLength) {
                         // TODO: return custom error(?)
-                        LOGGER.log(Level.SEVERE, "Unable to download while file " + fileInfoPacket.name +
+                        LOGGER.log(Level.SEVERE, "Unable to download whole file " + fileInfoPacket.name +
                                 ". Expected: " + fileInfoPacket.fileLength + " bytes, " +
                                 "got: " + file.length() + " bytes");
                     }
                 }
             } else {
-                pSocket.sendNo();
+                socketWrapper.sendNo();
             }
         }
+        LOGGER.log(Level.INFO, "Downloaded file(s) successfully.");
     }
 
     // TODO: Make a local "out" where the received text is to be written.
-    private void receiveText(ProtocolSocket pSocket) throws IOException, IncorrectMessageTypeException {
+    private void receiveText(SocketWrapper socketWrapper) throws IOException, IncorrectMessageTypeException {
+        StringBuilder sb = new StringBuilder();
         int index = 0;
-        while (!pSocket.isDone()) {
-            String text = pSocket.receiveText(index);
+        while (!socketWrapper.isDone()) {
+            String text = socketWrapper.receiveText(index);
             // FIXME: temp out
-            System.out.print(text);
+            sb.append(text);
             index++;
         }
-        System.out.println();
+        LOGGER.log(Level.INFO, "Received text message:\n" + sb.toString());
     }
 }

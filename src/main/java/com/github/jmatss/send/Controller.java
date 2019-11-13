@@ -3,10 +3,14 @@ package com.github.jmatss.send;
 import com.github.jmatss.send.exception.IncorrectMessageTypeException;
 import com.github.jmatss.send.protocol.*;
 import com.github.jmatss.send.type.MessageType;
+import com.github.jmatss.send.util.ClosableWrapper;
 import com.github.jmatss.send.util.ScheduledExecutorServiceSingleton;
 
 import java.io.*;
 import java.net.*;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.security.NoSuchAlgorithmException;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.locks.Lock;
@@ -16,6 +20,9 @@ import java.util.logging.Logger;
 
 // TODO: Fix limitation of only one ip/port(?)
 public class Controller {
+    public static final long DEFAULT_PUBLISH_TIMEOUT = 0; // (0 = infinite)
+    public static final long DEFAULT_PUBLISH_INTERVAL = 5; // Seconds
+
     private static final Logger LOGGER = Logger.getLogger(Controller.class.getName());
     private ScheduledExecutorService executor;
     private MulticastSocket socket;
@@ -24,7 +31,7 @@ public class Controller {
 
     // PUBLISHING
     private Sender sender;
-    private Map<String, List<Future<?>>> publishedTopics;
+    private Map<String, ClosableWrapper> publishedTopics;
     private Lock mutexPublishedTopics;
 
     // SUBSCRIBING
@@ -73,7 +80,7 @@ public class Controller {
 
         this.subscribedTopics = new TreeSet<>();
         this.mutexSubscribedTopics = new ReentrantLock(true);
-        this.receiver = Receiver.getInstance(downloadPath, this.socket, this.subscribedTopics,
+        this.receiver = Receiver.getInstance(Paths.get(downloadPath), this.socket, this.subscribedTopics,
                 this.mutexSubscribedTopics);
         this.executor.submit(this.receiver::start);
     }
@@ -84,12 +91,29 @@ public class Controller {
         return this.executor.shutdownNow();
     }
 
+    public List<String> list() {
+        List<String> result = new ArrayList<>();
+        this.mutexSubscribedTopics.lock();
+        this.mutexPublishedTopics.lock();
+        try {
+            for (String s : this.publishedTopics.keySet())
+                result.add("pub : " + s);
+            for (String s : this.subscribedTopics)
+                result.add("sub : " + s);
+        } finally {
+            this.mutexSubscribedTopics.unlock();
+            this.mutexPublishedTopics.unlock();
+        }
+        return result;
+    }
+
     /**
      * Adds and sends publishing messages via the executor.
      *
      * @param protocol is the protocol message to be sent.
      * @param topic    that the sender publishes on and the subscribers can listen on.
-     * @param timeout  in seconds for how long the message should be published.
+     * @param timeout  in seconds for how long the message should be published. A value of zero indicates infinite
+     *                 publishing.
      * @param interval in seconds between every publishing packet sent.
      * @return the topic that can be used to access the created ScheduledFuture if one want's to cancel the
      * publishing before the timeout.
@@ -134,11 +158,8 @@ public class Controller {
                     TimeUnit.SECONDS
             );
 
-            List<Future<?>> taskList = new ArrayList<>(2);
-            taskList.add(listener);
-            taskList.add(publisher);
-
-            this.publishedTopics.put(topic, taskList);
+            ClosableWrapper closeWrapper = new ClosableWrapper(serverSocket, listener, publisher);
+            this.publishedTopics.put(topic, closeWrapper);
         } finally {
             this.mutexPublishedTopics.unlock();
         }
@@ -160,16 +181,54 @@ public class Controller {
 
     // FIXME: If someone does a manual cancel, and then re-published on the same topic,
     //  the "timeout-cancel" can cancel the newly published topic.
-    private void cancelPublish(String topic) {
+    public void cancelPublish(String topic) {
         this.mutexPublishedTopics.lock();
         try {
+
             if (this.publishedTopics.containsKey(topic)) {
-                for (Future future : this.publishedTopics.get(topic))
-                    future.cancel(true);
+                this.publishedTopics.get(topic).close();
                 this.publishedTopics.remove(topic);
+            } else {
+                throw new IllegalArgumentException("Not publishing on this topic.");
             }
         } finally {
             this.mutexPublishedTopics.unlock();
+        }
+    }
+
+    public void publishText(String topic, String text, long timeout, long interval)
+            throws IOException, IncorrectMessageTypeException {
+        Protocol protocol = new TextProtocol(text);
+        publish(protocol, topic, timeout, interval);
+    }
+
+    public void publishFile(String topic, String path, long timeout, long interval)
+            throws IOException, IncorrectMessageTypeException, NoSuchAlgorithmException {
+        File f = new File(path);
+        if (!f.exists())
+            throw new IOException("The path \"" + path + "\" doesn't exist.");
+        else if (!f.isFile() && !f.isDirectory())
+            throw new IOException("The path \"" + path + "\" is neither a file nor a directory.");
+
+        List<String> namesList = new ArrayList<>();
+        List<String> pathsList = new ArrayList<>();
+        Path basePath = f.getParentFile().toPath();
+        recursePath(f, basePath, namesList, pathsList);
+        String[] names = namesList.toArray(new String[0]);
+        String[] paths = pathsList.toArray(new String[0]);
+
+        publish(new FileProtocol(names, paths), topic, timeout, interval);
+    }
+
+    private void recursePath(File f, Path basePath, List<String> names, List<String> paths) {
+        if (f.isFile()) {
+            names.add(basePath.relativize(f.toPath()).toString());
+            paths.add(f.getPath());
+        } else if (f.isDirectory()) {
+            for (File newF : f.listFiles()) {
+                if (newF != null)
+                    recursePath(newF, basePath, names, paths);
+            }
         }
     }
 
@@ -192,9 +251,11 @@ public class Controller {
         return topic;
     }
 
-    private void cancelSubscribe(String topic) {
+    public void cancelSubscribe(String topic) {
         this.mutexSubscribedTopics.lock();
         try {
+            if (!this.subscribedTopics.contains(topic))
+                throw new IllegalArgumentException("Not subscribed to this topic.");
             this.subscribedTopics.remove(topic);
         } finally {
             this.mutexSubscribedTopics.unlock();
