@@ -27,16 +27,16 @@ public class Receiver {
     private final ScheduledExecutorService executor;
     private final MulticastSocket multicastSocket;
     private final Set<String> subscribedTopics;
-    private final Lock subscribedTopicsMutex;
+    private final Lock mutexSubscribedTopics;
     private String downloadPath;
 
     private Receiver(String downloadPath, MulticastSocket multicastSocket, Set<String> subscribedTopics,
-                     Lock subscribedTopicsMutex) {
+                     Lock mutexSubscribedTopics) {
         this.downloadPath = downloadPath;
         this.executor = ScheduledExecutorServiceSingleton.getInstance();
         this.multicastSocket = multicastSocket;
         this.subscribedTopics = subscribedTopics;
-        this.subscribedTopicsMutex = subscribedTopicsMutex;
+        this.mutexSubscribedTopics = mutexSubscribedTopics;
     }
 
     public static Receiver getInstance(String downloadPath, MulticastSocket socket, Set<String> subscribedTopics,
@@ -81,12 +81,12 @@ public class Receiver {
         try {
             PublishPacket pp = new ProtocolSocket(new ByteArrayInputStream(content)).receivePublish();
 
-            this.subscribedTopicsMutex.lock();
+            this.mutexSubscribedTopics.lock();
             try {
                 if (!this.subscribedTopics.contains(pp.topic))
                     return;
             } finally {
-                this.subscribedTopicsMutex.unlock();
+                this.mutexSubscribedTopics.unlock();
             }
 
 

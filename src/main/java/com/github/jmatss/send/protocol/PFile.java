@@ -28,7 +28,7 @@ public class PFile {
     private int pieceSize;
 
     PFile(String name, String path, HashType fileHashType, HashType pieceHashType, int pieceSize)
-            throws IOException, NoSuchAlgorithmException {
+            throws IOException {
         if (!new File(path).exists())
             throw new FileNotFoundException("Unable to find file " + path);
         else if (fileHashType == HashType.NONE)
@@ -80,15 +80,6 @@ public class PFile {
     /**
      * Gets the "file info" packet that is to be sent before sending the data packets from the "packetIterator".
      * Contains "meta-data" of the file to be sent.
-     * Format:
-     * {@code
-     * MessageType (1 byte)
-     * | NameLength (4 bytes)
-     * | Name ("NameLength" bytes)
-     * | TotalFileLength (8 bytes)
-     * | HashType (1 byte)
-     * | Hash-digest (of whole file) (x bytes)
-     * }
      *
      * @return the "file info" packet.
      * @throws IOException              when it's unable to decode the name into bytes or if it's unable to open the
@@ -96,19 +87,16 @@ public class PFile {
      * @throws NoSuchAlgorithmException if an incorrect hash type is used.
      */
     public byte[] getFileInfoPacket() throws IOException, NoSuchAlgorithmException {
-        byte[] digest = this.getDigest();
-        File file = new File(this.path);
-
-        ByteBuffer packet = ByteBuffer
+        byte[] digest = getDigest();
+        return ByteBuffer
                 .allocate(1 + 4 + this.name.length() + 1 + digest.length + 8)
                 .put((byte) MessageType.FILE_INFO.value())
                 .putInt(this.name.length())
                 .put(this.name.getBytes(Protocol.ENCODING))
-                .putLong(file.length())
+                .putLong(new File(this.path).length())
                 .put((byte) this.fileHashType.value())
-                .put(digest);
-
-        return packet.array();
+                .put(digest)
+                .array();
     }
 
     /**
