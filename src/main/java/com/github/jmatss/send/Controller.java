@@ -1,12 +1,10 @@
 package com.github.jmatss.send;
 
 import com.github.jmatss.send.exception.IncorrectMessageTypeException;
-import com.github.jmatss.send.packet.RequestPacket;
 import com.github.jmatss.send.protocol.*;
 
 import java.io.*;
 import java.net.*;
-import java.security.NoSuchAlgorithmException;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.locks.Lock;
@@ -14,22 +12,21 @@ import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import static com.github.jmatss.send.protocol.ProtocolSocket.*;
-
 // TODO: Fix limitation of only one ip/port(?)
 public class Controller {
     private static final Logger LOGGER = Logger.getLogger(Controller.class.getName());
     private ScheduledExecutorService executor;
     private MulticastSocket socket;
-    private Receiver receiver;
     private InetAddress ip;
     private int port;
 
     // PUBLISHING
+    private Sender sender;
     private Map<String, List<Future<?>>> publishedTopics;
     private Lock mutexPublishedTopics;
 
     // SUBSCRIBING
+    private Receiver receiver;
     private Set<String> subscribedTopics;
     private Lock mutexSubscribedTopics;
 
@@ -63,17 +60,17 @@ public class Controller {
             throw new IllegalArgumentException("Specified ip isn't a multicast address: " + ip);
 
         this.executor = ScheduledExecutorServiceSingleton.getInstance();
-
-        this.publishedTopics = new HashMap<>();
-        this.mutexPublishedTopics = new ReentrantLock(true);
-        this.subscribedTopics = new TreeSet<>();
-        this.mutexSubscribedTopics = new ReentrantLock(true);
-
         this.ip = InetAddress.getByName(ip);
         this.port = port;
         this.socket = socket;
         this.socket.joinGroup(this.ip);
 
+        this.publishedTopics = new HashMap<>();
+        this.mutexPublishedTopics = new ReentrantLock(true);
+        this.sender = Sender.getInstance(this.publishedTopics, this.mutexPublishedTopics);
+
+        this.subscribedTopics = new TreeSet<>();
+        this.mutexSubscribedTopics = new ReentrantLock(true);
         this.receiver = Receiver.getInstance(downloadPath, this.socket, this.subscribedTopics,
                 this.mutexSubscribedTopics);
         this.executor.submit(this.receiver::start);
@@ -113,7 +110,7 @@ public class Controller {
             Future<?> listener = this.executor.submit(
                     () -> {
                         try {
-                            listener(serverSocket, protocol);
+                            this.sender.listen(serverSocket, protocol);
                         } catch (IOException e) {
                             LOGGER.log(Level.SEVERE, "Exception while listening on server socket: " + e.getMessage());
                         }
@@ -135,11 +132,11 @@ public class Controller {
                     TimeUnit.SECONDS
             );
 
-            List<Future<?>> futureList = new ArrayList<>(2);
-            futureList.add(listener);
-            futureList.add(publisher);
+            List<Future<?>> taskList = new ArrayList<>(2);
+            taskList.add(listener);
+            taskList.add(publisher);
 
-            this.publishedTopics.put(topic, futureList);
+            this.publishedTopics.put(topic, taskList);
         } finally {
             this.mutexPublishedTopics.unlock();
         }
@@ -172,64 +169,6 @@ public class Controller {
         } finally {
             this.mutexPublishedTopics.unlock();
         }
-    }
-
-    // TODO: fix so that the "send" function sends all packets before exiting if the task gets a cancel.
-    private void listener(ServerSocket serverSocket, Protocol protocol) throws IOException {
-        while (true) {
-            Socket clientSocket = serverSocket.accept();
-            ProtocolSocket pSocket = new ProtocolSocket(clientSocket);
-            this.executor.submit(() -> send(pSocket, protocol));
-        }
-    }
-
-    public void send(ProtocolSocket pSocket, Protocol protocol) {
-        try {
-            RequestPacket rp = pSocket.receiveRequest();
-            this.mutexPublishedTopics.lock();
-            try {
-                if (!this.publishedTopics.containsKey(rp.topic))
-                    throw new IllegalArgumentException("Received a request with a non published topic specified : " + rp.topic);
-            } finally {
-                this.mutexPublishedTopics.unlock();
-            }
-
-            if (protocol instanceof FileProtocol)
-                sendFile(pSocket, (FileProtocol) protocol);
-            else if (protocol instanceof TextProtocol)
-                sendText(pSocket, (TextProtocol) protocol);
-            else
-                throw new RuntimeException("Incorrect protocol class");
-
-        } catch (IOException | IncorrectMessageTypeException | NoSuchAlgorithmException e) {
-            LOGGER.log(Level.SEVERE, e.getMessage());
-        } finally {
-            try {
-                pSocket.close();
-            } catch (IOException e) {
-                LOGGER.log(Level.SEVERE, "Unable to close socket: " + e.getMessage());
-            }
-        }
-    }
-
-    private void sendFile(ProtocolSocket pSocket, FileProtocol fileProtocol)
-            throws IOException, NoSuchAlgorithmException {
-        for (PFile pfile : fileProtocol.iter()) {
-            pSocket.sendFileInfo(pfile.getFileInfoPacket());
-
-            if (pSocket.isYes()) {
-                for (byte[] filePiece : pfile.packetIterator())
-                    pSocket.sendFilePiece(filePiece);
-                pSocket.sendDone();
-            }
-        }
-        pSocket.sendDone();
-    }
-
-    private void sendText(ProtocolSocket pSocket, TextProtocol textProtocol) throws IOException {
-        for (byte[] textPacket : textProtocol.iter())
-            pSocket.sendText(textPacket);
-        pSocket.sendDone();
     }
 
     /**
