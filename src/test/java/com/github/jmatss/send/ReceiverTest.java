@@ -2,7 +2,7 @@ package com.github.jmatss.send;
 
 import com.github.jmatss.send.mock.DummyMulticastSocket;
 import com.github.jmatss.send.protocol.Protocol;
-import com.github.jmatss.send.protocol.ProtocolSocket;
+import com.github.jmatss.send.protocol.SocketWrapper;
 import com.github.jmatss.send.type.MessageType;
 import com.github.jmatss.send.util.ScheduledExecutorServiceSingleton;
 import org.junit.jupiter.api.Test;
@@ -11,6 +11,8 @@ import java.io.IOException;
 import java.net.MulticastSocket;
 import java.net.ServerSocket;
 import java.nio.ByteBuffer;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.Set;
 import java.util.TreeSet;
@@ -26,7 +28,7 @@ public class ReceiverTest {
     public void testReceiverSendsRequestPacketCorrectlyToSubscribedTopic() throws IOException {
         MessageType subMessageType = MessageType.TEXT;
         ServerSocket serverSocket = new ServerSocket(0);
-        String path = "";
+        Path path = Paths.get("");
         String topic = "test_topic";
         String host = "127.0.0.1";
         byte[] topicBytes = topic.getBytes(Protocol.ENCODING);
@@ -46,13 +48,13 @@ public class ReceiverTest {
                 .array();
 
         MulticastSocket multicastSocket = new DummyMulticastSocket(packet_expected, host, 1);
-        ProtocolSocket pSocket = null;
+        SocketWrapper socketWrapper = null;
         ScheduledExecutorService executor = ScheduledExecutorServiceSingleton.getInstance();
         try {
             Receiver receiver = Receiver.getInstance(path, multicastSocket, subscribedTopics, mutex);
             executor.submit(receiver::start);
 
-            pSocket = new ProtocolSocket(serverSocket.accept());
+            socketWrapper = new SocketWrapper(serverSocket.accept());
 
             MessageType expectedMessageType = MessageType.REQUEST;
             int expectedTopicLength = topicBytes.length;
@@ -60,7 +62,7 @@ public class ReceiverTest {
             byte[] expectedId = id;
 
             byte[] receivedRequestPacket = new byte[1 + 1 + expectedTopicLength + 4];
-            int n = pSocket.getInputStream().read(receivedRequestPacket);
+            int n = socketWrapper.getInputStream().read(receivedRequestPacket);
             if (n == -1)
                 fail("Received EOF while reading request packet.");
             else if (n != receivedRequestPacket.length)
@@ -76,13 +78,11 @@ public class ReceiverTest {
             assertArrayEquals(expectedId, Arrays.copyOfRange(receivedRequestPacket, expectedTopicLength + 2,
                     expectedTopicLength + 6));
 
-
-
             // Send done message immediately before sending text.
-            pSocket.sendDone();
+            socketWrapper.sendDone();
         } finally {
-            if (pSocket != null)
-                pSocket.close();
+            if (socketWrapper != null)
+                socketWrapper.close();
             serverSocket.close();
             multicastSocket.close();
             if (!executor.isShutdown())
