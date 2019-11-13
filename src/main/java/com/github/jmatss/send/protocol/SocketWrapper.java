@@ -15,30 +15,34 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
 
-public class ProtocolSocket {
+public class SocketWrapper {
     private final Socket socket;
     private final PushbackInputStream in;
     private final OutputStream out;
 
-    public ProtocolSocket(Socket socket, InputStream in, OutputStream out) throws IOException {
+    private SocketWrapper(Socket socket, InputStream in, OutputStream out) {
         this.socket = socket;
         this.in = new PushbackInputStream(in);
         this.out = out;
     }
 
-    public ProtocolSocket(Socket socket) throws IOException {
+    public SocketWrapper(Socket socket) throws IOException {
         this(socket, socket.getInputStream(), socket.getOutputStream());
     }
 
-    public ProtocolSocket(InputStream in) throws IOException {
+    public SocketWrapper(InputStream in) throws IOException {
         this(null, in, null);
     }
 
-    public ProtocolSocket(OutputStream out) throws IOException {
+    public SocketWrapper(OutputStream out) throws IOException {
         this(null, null, out);
     }
 
     public void close() throws IOException {
+        if (this.in != null)
+            this.in.close();
+        if (this.out != null)
+            this.out.close();
         if (this.socket != null)
             this.socket.close();
     }
