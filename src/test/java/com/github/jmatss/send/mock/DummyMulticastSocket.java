@@ -20,11 +20,11 @@ public class DummyMulticastSocket extends MulticastSocket {
 
     @Override
     public void receive(DatagramPacket p) throws IOException {
-        // Block on receive if all all "amountOfReads" have been read.
-        if (this.amountOfReads-- == 0) {
+        // Block indefinitely if "amountOfReads" has been read.
+        if (this.amountOfReads-- <= 0) {
             while(true) {
                 try {
-                    Thread.sleep(1000);
+                    Thread.sleep(Long.MAX_VALUE);
                 } catch (InterruptedException e) {
                     return;
                 }
