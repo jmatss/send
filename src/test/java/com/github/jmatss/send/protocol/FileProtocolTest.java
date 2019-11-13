@@ -30,7 +30,7 @@ public class FileProtocolTest {
                 .put(toDigest("1FE1AE26BF167A668B9EBE0BCC70291146AC7957"))
                 .array();
 
-        byte[] packet_expected = ByteBuffer
+        byte[] file_piece_expected = ByteBuffer
                 .allocate(1 + 4 + 4 + t.content.length + 1)
                 .put((byte) MessageType.FILE_PIECE.value())
                 .putInt(0)
@@ -40,7 +40,7 @@ public class FileProtocolTest {
                 .array();
 
         TestFile[] ts = {t};
-        runTest(ts, file_info_expected, packet_expected);
+        runTest(ts, file_info_expected, file_piece_expected);
     }
 
     @Test
@@ -60,9 +60,9 @@ public class FileProtocolTest {
                 .put(toDigest("1FE1AE26BF167A668B9EBE0BCC70291146AC7957"))
                 .array();
 
-        List<byte[]> packets_expected = new ArrayList<>(2);
+        List<byte[]> file_pieces_expected = new ArrayList<>(2);
         for (int i = 0; i < 2; i++) {
-            packets_expected.add(ByteBuffer
+            file_pieces_expected.add(ByteBuffer
                     .allocate(1 + 4 + 4 + pieceSize + 1)
                     .put((byte) MessageType.FILE_PIECE.value())
                     .putInt(i)
@@ -73,7 +73,7 @@ public class FileProtocolTest {
         }
 
         TestFile[] ts = {t};
-        runTest(ts, file_info_expected, packets_expected, pieceSize);
+        runTest(ts, file_info_expected, file_pieces_expected, pieceSize);
     }
 
     @Test
@@ -93,7 +93,7 @@ public class FileProtocolTest {
         return res;
     }
 
-    private void runTest(TestFile[] ts, List<byte[]> file_infos_expected, List<byte[]> packets_expected,
+    private void runTest(TestFile[] ts, List<byte[]> file_infos_expected, List<byte[]> file_pieces_expected,
                          int pieceSize) {
         if (ts.length == 0)
             fail("Incorrect testdata given, can't run test with zero test files");
@@ -117,8 +117,8 @@ public class FileProtocolTest {
                 assertArrayEquals(file_infos_expected.get(i), pFile.getFileInfoPacket());
                 j = 0;
                 for (byte[] packet_got : pFile.packetIterator()) {
-                    if (j >= packets_expected.size()) break;
-                    assertArrayEquals(packets_expected.get(j), packet_got);
+                    if (j >= file_pieces_expected.size()) break;
+                    assertArrayEquals(file_pieces_expected.get(j), packet_got);
                     j++;
                 }
                 i++;
@@ -126,35 +126,35 @@ public class FileProtocolTest {
 
             assertEquals(file_infos_expected.size(), i,
                     String.format("Expected %d file(s), got %d files(s).", file_infos_expected.size(), i));
-            assertEquals(packets_expected.size(), j,
-                    String.format("Expected %d packet(s), got %d packet(s).", packets_expected.size(), j));
+            assertEquals(file_pieces_expected.size(), j,
+                    String.format("Expected %d packet(s), got %d packet(s).", file_pieces_expected.size(), j));
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
     }
 
-    private void runTest(TestFile[] ts, byte[] file_info_expected, List<byte[]> packets_expected, int pieceSize) {
+    private void runTest(TestFile[] ts, byte[] file_info_expected, List<byte[]> file_pieces_expected, int pieceSize) {
         List<byte[]> file_infos_expected = new ArrayList<>();
         file_infos_expected.add(file_info_expected);
 
-        runTest(ts, file_infos_expected, packets_expected, pieceSize);
+        runTest(ts, file_infos_expected, file_pieces_expected, pieceSize);
     }
 
-    private void runTest(TestFile[] ts, byte[] file_info_expected, List<byte[]> packets_expected) {
-        runTest(ts, file_info_expected, packets_expected, Protocol.DEFAULT_PIECE_SIZE);
+    private void runTest(TestFile[] ts, byte[] file_info_expected, List<byte[]> file_pieces_expected) {
+        runTest(ts, file_info_expected, file_pieces_expected, Protocol.DEFAULT_PIECE_SIZE);
     }
 
-    private void runTest(TestFile[] ts, byte[] file_info_expected, byte[] packet_expected, int pieceSize) {
+    private void runTest(TestFile[] ts, byte[] file_info_expected, byte[] file_piece_expected, int pieceSize) {
         List<byte[]> file_infos_expected = new ArrayList<>();
         file_infos_expected.add(file_info_expected);
         List<byte[]> packets_expected = new ArrayList<>();
-        packets_expected.add(packet_expected);
+        packets_expected.add(file_piece_expected);
 
         runTest(ts, file_infos_expected, packets_expected, pieceSize);
     }
 
-    private void runTest(TestFile[] ts, byte[] file_info_expected, byte[] packets_expected) {
-        runTest(ts, file_info_expected, packets_expected, Protocol.DEFAULT_PIECE_SIZE);
+    private void runTest(TestFile[] ts, byte[] file_info_expected, byte[] file_piece_expected) {
+        runTest(ts, file_info_expected, file_piece_expected, Protocol.DEFAULT_PIECE_SIZE);
     }
 
     // Helper class that contains info of a file that is to be used in a test.
