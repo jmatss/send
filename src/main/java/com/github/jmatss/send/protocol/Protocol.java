@@ -38,9 +38,9 @@ abstract public class Protocol<T> {
             throw new RuntimeException(e);
         }
 
-        return ByteBuffer.allocate(1 + 4 + topicBytes.length + 1 + 4 + 4)
+        return ByteBuffer.allocate(1 + 1 + topicBytes.length + 1 + 4 + 4)
                 .put((byte) MessageType.PUBLISH.value())
-                .putInt(topicBytes.length)
+                .put((byte) topicBytes.length)
                 .put(topicBytes)
                 .put((byte) getMessageType().value())
                 .putInt(port)
