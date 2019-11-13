@@ -12,7 +12,7 @@ public class TextProtocol extends Protocol {
     private final byte[] text;
     private final int pieceSize;
 
-    TextProtocol(String text, int pieceSize) throws UnsupportedEncodingException {
+    public TextProtocol(String text, int pieceSize) throws UnsupportedEncodingException {
         if (pieceSize > Protocol.MAX_PIECE_SIZE)
             throw new IllegalArgumentException(String.format("pieceSize > Protocol.MAX_PIECE_SIZE: (%d > %d)",
                     pieceSize, Protocol.MAX_PIECE_SIZE));
@@ -21,7 +21,7 @@ public class TextProtocol extends Protocol {
         this.pieceSize = pieceSize;
     }
 
-    TextProtocol(String text) throws UnsupportedEncodingException {
+    public TextProtocol(String text) throws UnsupportedEncodingException {
         this(text, Protocol.DEFAULT_PIECE_SIZE);
     }
 

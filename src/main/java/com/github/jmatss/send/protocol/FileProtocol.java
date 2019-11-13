@@ -12,14 +12,13 @@ public class FileProtocol extends Protocol {
     private final MessageType messageType = MessageType.FILE_PIECE;
     private PFile[] files;
 
-    FileProtocol(PFile[] files) {
+    public FileProtocol(PFile[] files) {
         if (files.length == 0)
             throw new IllegalArgumentException("Not allowed to create a FileProtocol with zero files");
         this.files = files;
     }
 
-    FileProtocol(String[] names, String[] paths, HashType fileHashType, HashType pieceHashType, int pieceSize) throws IOException,
-            NoSuchAlgorithmException {
+    public FileProtocol(String[] names, String[] paths, HashType fileHashType, HashType pieceHashType, int pieceSize) throws IOException {
         if (paths.length == 0)
             throw new IllegalArgumentException("Not allowed to create a FileProtocol with zero paths");
         else if (names.length == 0)
@@ -34,7 +33,7 @@ public class FileProtocol extends Protocol {
         this.files = files;
     }
 
-    FileProtocol(String[] names, String[] paths) throws IOException, NoSuchAlgorithmException {
+    public FileProtocol(String[] names, String[] paths) throws IOException {
         this(names, paths, Protocol.DEFAULT_HASH_TYPE, Protocol.DEFAULT_HASH_TYPE, Protocol.DEFAULT_PIECE_SIZE);
     }
 
