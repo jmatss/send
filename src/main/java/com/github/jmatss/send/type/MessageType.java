@@ -1,4 +1,4 @@
-package com.github.jmatss.send;
+package com.github.jmatss.send.type;
 
 public enum MessageType {
     // Used when multi casting publish packet.

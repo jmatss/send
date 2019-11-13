@@ -1,4 +1,4 @@
-package com.github.jmatss.send;
+package com.github.jmatss.send.util;
 
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;

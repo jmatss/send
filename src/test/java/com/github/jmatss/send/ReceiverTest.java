@@ -3,6 +3,8 @@ package com.github.jmatss.send;
 import com.github.jmatss.send.mock.DummyMulticastSocket;
 import com.github.jmatss.send.protocol.Protocol;
 import com.github.jmatss.send.protocol.ProtocolSocket;
+import com.github.jmatss.send.type.MessageType;
+import com.github.jmatss.send.util.ScheduledExecutorServiceSingleton;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -73,6 +75,8 @@ public class ReceiverTest {
             assertArrayEquals(expectedTopic, Arrays.copyOfRange(receivedRequestPacket, 2, expectedTopicLength + 2));
             assertArrayEquals(expectedId, Arrays.copyOfRange(receivedRequestPacket, expectedTopicLength + 2,
                     expectedTopicLength + 6));
+
+
 
             // Send done message immediately before sending text.
             pSocket.sendDone();

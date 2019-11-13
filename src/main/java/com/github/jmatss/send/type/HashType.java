@@ -1,4 +1,4 @@
-package com.github.jmatss.send;
+package com.github.jmatss.send.type;
 
 public enum HashType {
     NONE(0, null, 0),

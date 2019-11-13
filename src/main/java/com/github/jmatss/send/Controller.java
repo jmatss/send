@@ -2,6 +2,8 @@ package com.github.jmatss.send;
 
 import com.github.jmatss.send.exception.IncorrectMessageTypeException;
 import com.github.jmatss.send.protocol.*;
+import com.github.jmatss.send.type.MessageType;
+import com.github.jmatss.send.util.ScheduledExecutorServiceSingleton;
 
 import java.io.*;
 import java.net.*;

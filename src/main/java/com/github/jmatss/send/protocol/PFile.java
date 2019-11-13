@@ -1,7 +1,7 @@
 package com.github.jmatss.send.protocol;
 
-import com.github.jmatss.send.HashType;
-import com.github.jmatss.send.MessageType;
+import com.github.jmatss.send.type.HashType;
+import com.github.jmatss.send.type.MessageType;
 
 import java.io.*;
 import java.nio.ByteBuffer;

@@ -1,6 +1,6 @@
 package com.github.jmatss.send.protocol;
 
-import com.github.jmatss.send.MessageType;
+import com.github.jmatss.send.type.MessageType;
 
 import java.io.UnsupportedEncodingException;
 import java.nio.ByteBuffer;

@@ -3,6 +3,7 @@ package com.github.jmatss.send;
 import com.github.jmatss.send.exception.IncorrectMessageTypeException;
 import com.github.jmatss.send.packet.RequestPacket;
 import com.github.jmatss.send.protocol.*;
+import com.github.jmatss.send.util.ScheduledExecutorServiceSingleton;
 
 import java.io.IOException;
 import java.net.ServerSocket;
@@ -10,7 +11,6 @@ import java.net.Socket;
 import java.security.NoSuchAlgorithmException;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.locks.Lock;
