@@ -72,5 +72,3 @@ Communication:
 TODO:
 * Compression of files
 * Encryption (tls or quic)
-* Make ProtocolAction to a proper class that takes a socket as input instead of using it's static methods
-* Make Receiver cache IDs from the PUBLISH packets so that it doesn't request the same packet several times
