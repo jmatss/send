@@ -178,6 +178,9 @@ public class Receiver {
             sb.append(text);
             index++;
         }
-        LOGGER.log(Level.INFO, "Received text message:\n" + sb.toString());
+        if (sb.length() != 0)
+            LOGGER.log(Level.INFO, "Received text message:\n" + sb.toString());
+        else
+            LOGGER.log(Level.INFO, "Received empty text message");
     }
 }
