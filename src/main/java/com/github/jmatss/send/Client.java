@@ -22,7 +22,7 @@ public class Client {
                     System.out.print(">> ");
                     String input = in.nextLine();
                     if (input.isEmpty()) {
-                        System.out.println("Empty command.");
+                        usage();
                         continue;
                     }
 
@@ -56,7 +56,7 @@ public class Client {
                                 topic = in.nextLine(); // TODO: make sure it isn't empty
                             }
 
-                            System.out.print("t[ext]/f[iles] (default: text): ");
+                            System.out.print("Send t[ext]/f[iles] (default: text): ");
                             input = in.nextLine();
                             if (!input.isEmpty() && input.getBytes(Protocol.ENCODING)[0] == 'f')
                                 text = false;
@@ -131,6 +131,7 @@ public class Client {
                             System.out.println("UNSUBSCRIBED " + cmd[1]);
                             break;
                         default:
+                            System.out.println("Invalid command.");
                             usage();
                     }
                 } catch (Exception e) {
@@ -143,12 +144,13 @@ public class Client {
     }
 
     static void usage() {
-        System.out.println(String.format("%-7s %s", "commands", "list(l/ls)"));
-        System.out.println(String.format("%-7s %s", "", "publish(p/pub) [<topic>]"));
-        System.out.println(String.format("%-7s %s", "", "unpublish(up) <topic>"));
-        System.out.println(String.format("%-7s %s", "", "subscribe(s/sub) <topic>"));
-        System.out.println(String.format("%-7s %s", "", "unsubscribe(us) <topic>"));
-        System.out.println(String.format("%-7s %s", "", "quit"));
+        System.out.println("Commands:");
+        System.out.println("\tl/ls/list");
+        System.out.println("\tp/pub/publish [<TOPIC>]");
+        System.out.println("\tup/unpublish <TOPIC>");
+        System.out.println("\ts/sub/subscribe <TOPIC>");
+        System.out.println("\tus/unsubscribe <TOPIC>");
+        System.out.println("\tq/quit");
     }
 
 }

@@ -184,7 +184,6 @@ public class Controller {
     public void cancelPublish(String topic) {
         this.mutexPublishedTopics.lock();
         try {
-
             if (this.publishedTopics.containsKey(topic)) {
                 this.publishedTopics.get(topic).close();
                 this.publishedTopics.remove(topic);
