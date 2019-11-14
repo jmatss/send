@@ -1,6 +1,13 @@
-# work in progress
-
 A simple program for sending/receiving files/text on a local network.
+
+Commands:
+
+    l/ls/list
+    p/pub/publish [<TOPIC>]
+    up/unpublish <TOPIC>
+    s/sub/subscribe <TOPIC>
+    us/unsubscribe <TOPIC>
+    q/quit
 
 Packet formats:
 
@@ -8,9 +15,9 @@ Packet formats:
         MessageType (1 byte)
         | Topic Length (1 byte)
         | Topic ("Topic Length" bytes)
-        | SubMessageType (1 byte)       //
+        | SubMessageType (1 byte)
         | Port (4 bytes) (that this publisher listens on for TCP connection)
-        | Random ID Number (4 bytes)    // unique
+        | Random ID Number (4 bytes) (unique)
 
     if (MessageType::REQUEST):
         MessageType (1 byte)
@@ -20,16 +27,16 @@ Packet formats:
 
     if (MessageType::TEXT):
         MessageType (1 byte)
-        | Index (4 bytes)
+        | Index (4 bytes) (needed when splitting the TEXT into multiple packets)
         | Length (4 bytes)
         | Text ("Length" bytes)
 
     if (MessageType::FILE_INFO):
         MessageType (1 byte)
-        | NameLength (4 bytes)
-        | Name ("NameLength" bytes)
+        | Name Length (4 bytes)
+        | Name ("Name Length" bytes)
         | TotalFileLength (8 bytes)
-        | HashType (1 byte)
+        | HashType (1 byte) (can NOT be HashType::NONE)
         | Hash-digest (of whole file) (x bytes)
         
     if (MessageType::FILE_PIECE):
@@ -38,7 +45,7 @@ Packet formats:
         | Length (4 bytes)
         | PieceContent ("Length" bytes)
         | HashType (1 byte)
-        | Hash-digest (of this piece) (x bytes) (can be zero bytes if HashType::None)
+        | Hash-digest (of this piece) (x bytes) (can be zero bytes if HashType::NONE)
         
     if (MessageType::YES || MessageType::NO || MessageType::DONE):
         MessageType (1 byte)
@@ -49,25 +56,25 @@ Communication:
     A                   B
     Publish ->          (<- Subscribe)
     (Publish ->)        <- Subscribe
-                        <- REQUEST
+                        <- Request
     File_info ->
-                        <- YES
-        FILE_PIECE ->
+                        <- Yes
+        File_piece ->
         ...
-        DONE ->
+        Done ->
     File_info ->        
-                        <- NO
+                        <- No
     ...
-    DONE ->
+    Done ->
 
     *** TEXT COM ***
     A                   B
     Publish ->          (<- Subscribe)
     (Publish ->)        <- Subscribe
-                        <- REQUEST
+                        <- Request
     Text ->
     ...
-    DONE ->
+    Done ->
 
 TODO:
 * Compression of files
