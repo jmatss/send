@@ -143,10 +143,10 @@ public class Receiver {
             // TODO: More checking, ex see if hash is the same; if not, download with another name.
             File file = Paths.get(this.downloadPath.toString(), fileInfoPacket.name).toFile();
             if (!file.exists()) {
-                socketWrapper.sendYes();
-
                 if (!file.getParentFile().mkdirs() && !file.getParentFile().exists())
                     throw new IOException("Unable to create folders " + file.getParentFile().toString());
+
+                socketWrapper.sendYes();
                 try (OutputStream fileWriter = new FileOutputStream(file)) {
                     int index = 0;
                     while (!socketWrapper.isDone()) {
