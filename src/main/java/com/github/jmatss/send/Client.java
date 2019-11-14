@@ -143,9 +143,12 @@ public class Client {
     }
 
     static void usage() {
-        System.out.println(String.format("%-7s %s", "usage", "list"));
-        System.out.println(String.format("%-7s %s", "", "publish <TODO>"));
-        System.out.println(String.format("%-7s %s", "", "subscribe <topic>"));
+        System.out.println(String.format("%-7s %s", "commands", "list(l/ls)"));
+        System.out.println(String.format("%-7s %s", "", "publish(p/pub) [<topic>]"));
+        System.out.println(String.format("%-7s %s", "", "unpublish(up) <topic>"));
+        System.out.println(String.format("%-7s %s", "", "subscribe(s/sub) <topic>"));
+        System.out.println(String.format("%-7s %s", "", "unsubscribe(us) <topic>"));
+        System.out.println(String.format("%-7s %s", "", "quit"));
     }
 
 }
