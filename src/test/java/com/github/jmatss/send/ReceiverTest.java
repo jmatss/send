@@ -4,7 +4,7 @@ import com.github.jmatss.send.mock.DummyMulticastSocket;
 import com.github.jmatss.send.protocol.Protocol;
 import com.github.jmatss.send.protocol.SocketWrapper;
 import com.github.jmatss.send.type.MessageType;
-import com.github.jmatss.send.util.LockableTreeSet;
+import com.github.jmatss.send.util.LockableHashSet;
 import com.github.jmatss.send.util.ScheduledExecutorServiceSingleton;
 import org.junit.jupiter.api.Test;
 
@@ -33,7 +33,7 @@ public class ReceiverTest {
         byte[] topicBytes = topic.getBytes(Protocol.ENCODING);
         byte[] id = {0, 0, 0, 1};
         Lock mutex = new ReentrantLock();
-        LockableTreeSet<String> subscribedTopics = new LockableTreeSet<>();
+        LockableHashSet<String> subscribedTopics = new LockableHashSet<>();
         subscribedTopics.add(topic);
 
         byte[] packet_expected = ByteBuffer

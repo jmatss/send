@@ -5,7 +5,7 @@ import com.github.jmatss.send.protocol.*;
 import com.github.jmatss.send.type.MessageType;
 import com.github.jmatss.send.util.ClosableWrapper;
 import com.github.jmatss.send.util.LockableHashMap;
-import com.github.jmatss.send.util.LockableTreeSet;
+import com.github.jmatss.send.util.LockableHashSet;
 import com.github.jmatss.send.util.ScheduledExecutorServiceSingleton;
 
 import java.io.*;
@@ -29,8 +29,7 @@ public class Controller {
     private InetAddress ip;
     private int port;
     private LockableHashMap<String, ClosableWrapper> publishedTopics;
-    private LockableTreeSet<String> subscribedTopics;
-
+    private LockableHashSet<String> subscribedTopics;
 
     Controller(String downloadPath, MulticastSocket socket, String ip, int port) throws IOException {
         init(downloadPath, socket, ip, port);
@@ -70,7 +69,7 @@ public class Controller {
         this.publishedTopics = new LockableHashMap<>();
         Sender.initInstance(this.publishedTopics);
 
-        this.subscribedTopics = new LockableTreeSet<>();
+        this.subscribedTopics = new LockableHashSet<>();
         Receiver receiver = Receiver.initInstance(Paths.get(downloadPath), this.socket, this.subscribedTopics);
         this.executor.submit(receiver::start);
     }
@@ -85,7 +84,7 @@ public class Controller {
         List<String> result = new ArrayList<>();
         try (
                 LockableHashMap lhm = this.publishedTopics.lock();
-                LockableTreeSet lts = this.subscribedTopics.lock()
+                LockableHashSet lts = this.subscribedTopics.lock()
         ) {
             for (String s : this.publishedTopics.keySet())
                 result.add("pub : " + s);
@@ -220,7 +219,7 @@ public class Controller {
      * @return the topic.
      */
     public String subscribe(String topic) {
-        try (LockableTreeSet l = this.subscribedTopics.lock()) {
+        try (LockableHashSet l = this.subscribedTopics.lock()) {
             if (this.subscribedTopics.contains(topic))
                 throw new IllegalArgumentException("Already subscribed to this topic.");
             this.subscribedTopics.add(topic);
@@ -230,7 +229,7 @@ public class Controller {
     }
 
     public void cancelSubscribe(String topic) {
-        try (LockableTreeSet l = this.subscribedTopics.lock()) {
+        try (LockableHashSet l = this.subscribedTopics.lock()) {
             if (!this.subscribedTopics.contains(topic))
                 throw new IllegalArgumentException("Not subscribed to this topic.");
             this.subscribedTopics.remove(topic);

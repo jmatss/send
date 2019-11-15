@@ -1,23 +1,23 @@
 package com.github.jmatss.send.util;
 
-import java.util.TreeSet;
+import java.util.HashSet;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
-public class LockableTreeSet<T> extends TreeSet<T> implements AutoCloseable {
+public class LockableHashSet<T> extends HashSet<T> implements AutoCloseable {
     private final Lock lock;
 
-    public LockableTreeSet() {
+    public LockableHashSet() {
         super();
         this.lock = new ReentrantLock();
     }
 
-    public LockableTreeSet lock() {
+    public LockableHashSet lock() {
         this.lock.lock();
         return this;
     }
 
-    public LockableTreeSet unlock() {
+    public LockableHashSet unlock() {
         this.lock.unlock();
         return this;
     }

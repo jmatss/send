@@ -4,7 +4,6 @@ import com.github.jmatss.send.type.HashType;
 import com.github.jmatss.send.type.MessageType;
 
 import java.io.IOException;
-import java.security.NoSuchAlgorithmException;
 import java.util.Iterator;
 
 public class FileProtocol extends Protocol {
