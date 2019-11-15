@@ -7,6 +7,7 @@ Commands:
     up/unpublish <TOPIC>
     s/sub/subscribe <TOPIC>
     us/unsubscribe <TOPIC>
+    o/path <DOWNLOAD_PATH>
     q/quit
 
 Packet formats:

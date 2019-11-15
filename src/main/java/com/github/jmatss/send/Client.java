@@ -9,7 +9,11 @@ import java.util.Scanner;
 
 public class Client {
     public static void main(String[] args) throws IOException {
+        // Use first argument as download path if specified.
         String path = "";
+        if (args.length == 1)
+            path = args[0];
+
         String ip = Protocol.DEFAULT_MULTICAST_IPV4;
         int port = Protocol.DEFAULT_PORT;
         MulticastSocket socket = new MulticastSocket(port);
@@ -27,7 +31,6 @@ public class Client {
                     }
 
                     String[] cmd = input.split(" ");
-
                     switch (cmd[0]) {
                         case "q":
                         case "quit":
@@ -53,8 +56,10 @@ public class Client {
                                 topic = cmd[1];
                             } else {
                                 System.out.print("Topic: ");
-                                topic = in.nextLine(); // TODO: make sure it isn't empty
+                                topic = in.nextLine();
                             }
+                            if (topic.length() == 0)
+                                throw new IllegalArgumentException("Empty topic not allowed.");
 
                             System.out.print("Send t[ext]/f[iles] (default: text): ");
                             input = in.nextLine();
@@ -65,7 +70,9 @@ public class Client {
                                 System.out.print("Text: ");
                             else
                                 System.out.print("Path: ");
-                            textOrPath = in.nextLine(); // TODO: make sure it isn't empty
+                            textOrPath = in.nextLine();
+                            if (textOrPath.length() == 0)
+                                throw new IllegalArgumentException("Empty input not allowed.");
 
                             System.out.print("Timeout (default: " + timeout + " s, 0 = infinite): ");
                             input = in.nextLine();
@@ -130,6 +137,15 @@ public class Client {
                             controller.cancelSubscribe(cmd[1]);
                             System.out.println("UNSUBSCRIBED " + cmd[1]);
                             break;
+                        case "o":
+                        case "path":
+                            if (cmd.length != 2) {
+                                System.out.println("Incorrect input");
+                                usage();
+                                break;
+                            }
+
+                            controller.setPath(cmd[1]);
                         default:
                             System.out.println("Invalid command.");
                             usage();
@@ -143,13 +159,14 @@ public class Client {
         }
     }
 
-    static void usage() {
+    public static void usage() {
         System.out.println("Commands:\n" +
                 "\tl/ls/list\n" +
                 "\tp/pub/publish [<TOPIC>]\n" +
                 "\tup/unpublish <TOPIC>\n" +
                 "\ts/sub/subscribe <TOPIC>\n" +
                 "\tus/unsubscribe <TOPIC>\n" +
+                "\to/path <DOWNLOAD_PATH>\n" +
                 "\tq/quit"
         );
     }

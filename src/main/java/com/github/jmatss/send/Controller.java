@@ -94,6 +94,10 @@ public class Controller {
         return result;
     }
 
+    public void setPath(String downloadPath) {
+        Receiver.getInstance().setPath(Paths.get(downloadPath));
+    }
+
     /**
      * Adds and sends publishing messages via the executor.
      *

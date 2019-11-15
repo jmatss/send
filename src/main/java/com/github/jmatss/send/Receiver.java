@@ -60,6 +60,10 @@ public class Receiver {
         return Receiver.instance;
     }
 
+    public void setPath(Path downloadPath) {
+        this.downloadPath = downloadPath;
+    }
+
     public void start() {
         byte[] buffer = new byte[Protocol.MAX_PUBLISH_PACKET_SIZE];
         while (true) {
