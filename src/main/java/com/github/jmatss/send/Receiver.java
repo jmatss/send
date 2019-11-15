@@ -7,6 +7,7 @@ import com.github.jmatss.send.packet.PublishPacket;
 import com.github.jmatss.send.protocol.Protocol;
 import com.github.jmatss.send.protocol.SocketWrapper;
 import com.github.jmatss.send.type.MessageType;
+import com.github.jmatss.send.util.LockableTreeSet;
 import com.github.jmatss.send.util.ScheduledExecutorServiceSingleton;
 
 import java.io.*;
@@ -22,7 +23,6 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.locks.Lock;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -34,25 +34,29 @@ public class Receiver {
 
     private final ScheduledExecutorService executor;
     private final MulticastSocket multicastSocket;
-    private final Set<String> subscribedTopics;
-    private final Lock mutexSubscribedTopics;
+    private final LockableTreeSet<String> subscribedTopics;
     private final Set<ByteBuffer> idCache;  // Caches downloaded ID's so they dont get downloaded again
     private Path downloadPath;
 
-    private Receiver(Path downloadPath, MulticastSocket multicastSocket, Set<String> subscribedTopics,
-                     Lock mutexSubscribedTopics) {
+    private Receiver(Path downloadPath, MulticastSocket multicastSocket, LockableTreeSet<String> subscribedTopics) {
         this.downloadPath = downloadPath;
         this.executor = ScheduledExecutorServiceSingleton.getInstance();
         this.multicastSocket = multicastSocket;
         this.subscribedTopics = subscribedTopics;
-        this.mutexSubscribedTopics = mutexSubscribedTopics;
         this.idCache = Collections.synchronizedSet(new HashSet<>());
     }
 
-    public static Receiver getInstance(Path downloadPath, MulticastSocket socket, Set<String> subscribedTopics,
-                                       Lock mutex) {
+    public static Receiver initInstance(Path downloadPath, MulticastSocket socket,
+                                        LockableTreeSet<String> subscribedTopics) {
+        if (Receiver.instance != null)
+            throw new ExceptionInInitializerError("Receiver already initialized.");
+        Receiver.instance = new Receiver(downloadPath, socket, subscribedTopics);
+        return Receiver.instance;
+    }
+
+    public static Receiver getInstance() {
         if (Receiver.instance == null)
-            Receiver.instance = new Receiver(downloadPath, socket, subscribedTopics, mutex);
+            throw new NullPointerException("Receiver instance is null.");
         return Receiver.instance;
     }
 
@@ -91,12 +95,9 @@ public class Receiver {
         try {
             PublishPacket pp = new SocketWrapper(new ByteArrayInputStream(content)).receivePublish();
 
-            this.mutexSubscribedTopics.lock();
-            try {
+            try (LockableTreeSet l = this.subscribedTopics.lock()) {
                 if (!this.subscribedTopics.contains(pp.topic) || this.idCache.contains(ByteBuffer.wrap(pp.id)))
                     return;
-            } finally {
-                this.mutexSubscribedTopics.unlock();
             }
 
             socketWrapper = new SocketWrapper(new Socket(packet.getAddress(), pp.port));

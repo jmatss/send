@@ -4,6 +4,7 @@ import com.github.jmatss.send.exception.IncorrectMessageTypeException;
 import com.github.jmatss.send.packet.RequestPacket;
 import com.github.jmatss.send.protocol.*;
 import com.github.jmatss.send.util.ClosableWrapper;
+import com.github.jmatss.send.util.LockableHashMap;
 import com.github.jmatss.send.util.ScheduledExecutorServiceSingleton;
 
 import java.io.IOException;
@@ -11,12 +12,7 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketException;
 import java.security.NoSuchAlgorithmException;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.locks.Lock;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -25,18 +21,24 @@ public class Sender {
     private static Sender instance;
 
     private final ScheduledExecutorService executor;
-    private final Map<String, ClosableWrapper> publishedTopics;
-    private final Lock mutexPublishedTopics;
+    private final LockableHashMap<String, ClosableWrapper> publishedTopics;
 
-    private Sender(Map<String, ClosableWrapper> publishedTopics, Lock mutexPublishedTopics) {
+    private Sender(LockableHashMap<String, ClosableWrapper> publishedTopics) {
         this.executor = ScheduledExecutorServiceSingleton.getInstance();
         this.publishedTopics = publishedTopics;
-        this.mutexPublishedTopics = mutexPublishedTopics;
     }
 
-    public static Sender getInstance(Map<String, ClosableWrapper> publishedTopics, Lock mutexPublishedTopics) {
+    public static Sender initInstance(LockableHashMap<String, ClosableWrapper> publishedTopics)
+            throws ExceptionInInitializerError {
+        if (Sender.instance != null)
+            throw new ExceptionInInitializerError("Sender already initialized.");
+        Sender.instance = new Sender(publishedTopics);
+        return Sender.instance;
+    }
+
+    public static Sender getInstance() {
         if (Sender.instance == null)
-            Sender.instance = new Sender(publishedTopics, mutexPublishedTopics);
+            throw new NullPointerException("Sender instance is null.");
         return Sender.instance;
     }
 
@@ -56,12 +58,10 @@ public class Sender {
     public void send(SocketWrapper socketWrapper, Protocol protocol) {
         try {
             RequestPacket rp = socketWrapper.receiveRequest();
-            this.mutexPublishedTopics.lock();
-            try {
+            try (LockableHashMap l = this.publishedTopics.lock()) {
                 if (!this.publishedTopics.containsKey(rp.topic))
-                    throw new IllegalArgumentException("Received a request with a non published topic specified : " + rp.topic);
-            } finally {
-                this.mutexPublishedTopics.unlock();
+                    throw new IllegalArgumentException("Received a request with a non published topic specified: " +
+                            rp.topic);
             }
 
             if (protocol instanceof FileProtocol)

@@ -4,6 +4,7 @@ import com.github.jmatss.send.mock.DummyMulticastSocket;
 import com.github.jmatss.send.protocol.Protocol;
 import com.github.jmatss.send.protocol.SocketWrapper;
 import com.github.jmatss.send.type.MessageType;
+import com.github.jmatss.send.util.LockableTreeSet;
 import com.github.jmatss.send.util.ScheduledExecutorServiceSingleton;
 import org.junit.jupiter.api.Test;
 
@@ -14,8 +15,6 @@ import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
-import java.util.Set;
-import java.util.TreeSet;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
@@ -34,7 +33,7 @@ public class ReceiverTest {
         byte[] topicBytes = topic.getBytes(Protocol.ENCODING);
         byte[] id = {0, 0, 0, 1};
         Lock mutex = new ReentrantLock();
-        Set<String> subscribedTopics = new TreeSet<>();
+        LockableTreeSet<String> subscribedTopics = new LockableTreeSet<>();
         subscribedTopics.add(topic);
 
         byte[] packet_expected = ByteBuffer
@@ -51,7 +50,7 @@ public class ReceiverTest {
         SocketWrapper socketWrapper = null;
         ScheduledExecutorService executor = ScheduledExecutorServiceSingleton.getInstance();
         try {
-            Receiver receiver = Receiver.getInstance(path, multicastSocket, subscribedTopics, mutex);
+            Receiver receiver = Receiver.initInstance(path, multicastSocket, subscribedTopics);
             executor.submit(receiver::start);
 
             socketWrapper = new SocketWrapper(serverSocket.accept());

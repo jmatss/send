@@ -144,13 +144,13 @@ public class Client {
     }
 
     static void usage() {
-        System.out.println("Commands:");
-        System.out.println("\tl/ls/list");
-        System.out.println("\tp/pub/publish [<TOPIC>]");
-        System.out.println("\tup/unpublish <TOPIC>");
-        System.out.println("\ts/sub/subscribe <TOPIC>");
-        System.out.println("\tus/unsubscribe <TOPIC>");
-        System.out.println("\tq/quit");
+        System.out.println("Commands:\n" +
+                "\tl/ls/list\n" +
+                "\tp/pub/publish [<TOPIC>]\n" +
+                "\tup/unpublish <TOPIC>\n" +
+                "\ts/sub/subscribe <TOPIC>\n" +
+                "\tus/unsubscribe <TOPIC>\n" +
+                "\tq/quit"
+        );
     }
-
 }

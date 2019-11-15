@@ -4,6 +4,8 @@ import com.github.jmatss.send.exception.IncorrectMessageTypeException;
 import com.github.jmatss.send.protocol.*;
 import com.github.jmatss.send.type.MessageType;
 import com.github.jmatss.send.util.ClosableWrapper;
+import com.github.jmatss.send.util.LockableHashMap;
+import com.github.jmatss.send.util.LockableTreeSet;
 import com.github.jmatss.send.util.ScheduledExecutorServiceSingleton;
 
 import java.io.*;
@@ -13,8 +15,6 @@ import java.nio.file.Paths;
 import java.security.NoSuchAlgorithmException;
 import java.util.*;
 import java.util.concurrent.*;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -28,16 +28,9 @@ public class Controller {
     private MulticastSocket socket;
     private InetAddress ip;
     private int port;
+    private LockableHashMap<String, ClosableWrapper> publishedTopics;
+    private LockableTreeSet<String> subscribedTopics;
 
-    // PUBLISHING
-    private Sender sender;
-    private Map<String, ClosableWrapper> publishedTopics;
-    private Lock mutexPublishedTopics;
-
-    // SUBSCRIBING
-    private Receiver receiver;
-    private Set<String> subscribedTopics;
-    private Lock mutexSubscribedTopics;
 
     Controller(String downloadPath, MulticastSocket socket, String ip, int port) throws IOException {
         init(downloadPath, socket, ip, port);
@@ -74,15 +67,12 @@ public class Controller {
         this.socket = socket;
         this.socket.joinGroup(this.ip);
 
-        this.publishedTopics = new HashMap<>();
-        this.mutexPublishedTopics = new ReentrantLock(true);
-        this.sender = Sender.getInstance(this.publishedTopics, this.mutexPublishedTopics);
+        this.publishedTopics = new LockableHashMap<>();
+        Sender.initInstance(this.publishedTopics);
 
-        this.subscribedTopics = new TreeSet<>();
-        this.mutexSubscribedTopics = new ReentrantLock(true);
-        this.receiver = Receiver.getInstance(Paths.get(downloadPath), this.socket, this.subscribedTopics,
-                this.mutexSubscribedTopics);
-        this.executor.submit(this.receiver::start);
+        this.subscribedTopics = new LockableTreeSet<>();
+        Receiver receiver = Receiver.initInstance(Paths.get(downloadPath), this.socket, this.subscribedTopics);
+        this.executor.submit(receiver::start);
     }
 
     public List<Runnable> shutdown() throws IOException {
@@ -93,16 +83,14 @@ public class Controller {
 
     public List<String> list() {
         List<String> result = new ArrayList<>();
-        this.mutexSubscribedTopics.lock();
-        this.mutexPublishedTopics.lock();
-        try {
+        try (
+                LockableHashMap lhm = this.publishedTopics.lock();
+                LockableTreeSet lts = this.subscribedTopics.lock()
+        ) {
             for (String s : this.publishedTopics.keySet())
                 result.add("pub : " + s);
             for (String s : this.subscribedTopics)
                 result.add("sub : " + s);
-        } finally {
-            this.mutexSubscribedTopics.unlock();
-            this.mutexPublishedTopics.unlock();
         }
         return result;
     }
@@ -127,8 +115,7 @@ public class Controller {
         else if (interval <= 0)
             throw new IllegalArgumentException("Interval set to zero or less.");
 
-        this.mutexPublishedTopics.lock();
-        try {
+        try (LockableHashMap l = this.publishedTopics.lock()) {
             if (this.publishedTopics.containsKey(topic))
                 throw new IllegalArgumentException("Already publishing on this topic.");
 
@@ -136,7 +123,7 @@ public class Controller {
             Future<?> listener = this.executor.submit(
                     () -> {
                         try {
-                            this.sender.listen(serverSocket, protocol);
+                            Sender.getInstance().listen(serverSocket, protocol);
                         } catch (IOException e) {
                             LOGGER.log(Level.SEVERE, "Exception while listening on server socket: " + e.getMessage());
                         }
@@ -160,8 +147,6 @@ public class Controller {
 
             ClosableWrapper closeWrapper = new ClosableWrapper(serverSocket, listener, publisher);
             this.publishedTopics.put(topic, closeWrapper);
-        } finally {
-            this.mutexPublishedTopics.unlock();
         }
 
         // Automatically cancel and remove task from this.publishedTasks map after timeout.
@@ -182,16 +167,13 @@ public class Controller {
     // FIXME: If someone does a manual cancel, and then re-published on the same topic,
     //  the "timeout-cancel" can cancel the newly published topic.
     public void cancelPublish(String topic) {
-        this.mutexPublishedTopics.lock();
-        try {
+        try (LockableHashMap l = this.publishedTopics.lock()) {
             if (this.publishedTopics.containsKey(topic)) {
                 this.publishedTopics.get(topic).close();
                 this.publishedTopics.remove(topic);
             } else {
                 throw new IllegalArgumentException("Not publishing on this topic.");
             }
-        } finally {
-            this.mutexPublishedTopics.unlock();
         }
     }
 
@@ -238,26 +220,20 @@ public class Controller {
      * @return the topic.
      */
     public String subscribe(String topic) {
-        this.mutexSubscribedTopics.lock();
-        try {
+        try (LockableTreeSet l = this.subscribedTopics.lock()) {
             if (this.subscribedTopics.contains(topic))
                 throw new IllegalArgumentException("Already subscribed to this topic.");
             this.subscribedTopics.add(topic);
-        } finally {
-            this.mutexSubscribedTopics.unlock();
         }
 
         return topic;
     }
 
     public void cancelSubscribe(String topic) {
-        this.mutexSubscribedTopics.lock();
-        try {
+        try (LockableTreeSet l = this.subscribedTopics.lock()) {
             if (!this.subscribedTopics.contains(topic))
                 throw new IllegalArgumentException("Not subscribed to this topic.");
             this.subscribedTopics.remove(topic);
-        } finally {
-            this.mutexSubscribedTopics.unlock();
         }
     }
 
