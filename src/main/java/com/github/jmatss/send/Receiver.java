@@ -188,4 +188,9 @@ public class Receiver {
         else
             LOGGER.log(Level.INFO, "Received empty text message");
     }
+
+    // FIXME: Ugly hack for testing, find another way to do this.
+    public static void clear() {
+        Receiver.instance = null;
+    }
 }
