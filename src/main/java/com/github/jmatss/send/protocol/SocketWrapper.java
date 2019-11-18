@@ -30,11 +30,11 @@ public class SocketWrapper {
         this(socket, socket.getInputStream(), socket.getOutputStream());
     }
 
-    public SocketWrapper(InputStream in) throws IOException {
+    public SocketWrapper(InputStream in) {
         this(null, in, null);
     }
 
-    public SocketWrapper(OutputStream out) throws IOException {
+    public SocketWrapper(OutputStream out) {
         this(null, null, out);
     }
 
@@ -149,8 +149,11 @@ public class SocketWrapper {
             throw new IOException("Index received from remote packet is different from the local index." +
                     " Local index: " + localIndex + ", remote index: " + remoteIndex);
 
-        // TODO: Make sure length isn't a weird size (ex. extremely large).
         int textLength = readInt();
+        if (textLength > Protocol.MAX_PIECE_SIZE)
+            throw new IOException("textLength > Protocol.MAX_PIECE_SIZE (" +
+                    textLength + " > " + Protocol.MAX_PIECE_SIZE);
+
         return new String(readN(textLength), Protocol.ENCODING);
     }
 

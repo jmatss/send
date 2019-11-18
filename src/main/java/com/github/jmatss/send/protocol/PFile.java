@@ -170,7 +170,7 @@ public class PFile {
                         return packet.array();
                     }
 
-                    private byte[] getPieceDigest(byte[] piece) throws IOException, NoSuchAlgorithmException {
+                    private byte[] getPieceDigest(byte[] piece) throws NoSuchAlgorithmException {
                         if (PFile.this.pieceHashType == HashType.NONE)
                             return null;
                         return MessageDigest
