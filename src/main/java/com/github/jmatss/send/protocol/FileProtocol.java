@@ -60,8 +60,4 @@ public class FileProtocol extends Protocol {
             }
         };
     }
-
-    public PFile[] getFiles() {
-        return this.files;
-    }
 }
