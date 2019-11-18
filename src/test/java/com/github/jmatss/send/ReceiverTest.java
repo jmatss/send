@@ -14,29 +14,24 @@ import java.net.ServerSocket;
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Arrays;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 public class ReceiverTest {
-
     @Test
     public void testReceiverSendsRequestPacketCorrectlyToSubscribedTopic() throws IOException {
         MessageType subMessageType = MessageType.TEXT;
         ServerSocket serverSocket = new ServerSocket(0);
         Path path = Paths.get("");
-        String topic = "test_topic";
         String host = "127.0.0.1";
+        String topic = "test_topic";
         byte[] topicBytes = topic.getBytes(Protocol.ENCODING);
         byte[] id = {0, 0, 0, 1};
-        Lock mutex = new ReentrantLock();
         LockableHashSet<String> subscribedTopics = new LockableHashSet<>();
         subscribedTopics.add(topic);
 
-        byte[] packet_expected = ByteBuffer
+        byte[] publish_packet = ByteBuffer
                 .allocate(1 + 1 + topicBytes.length + 1 + 4 + 4)
                 .put((byte) MessageType.PUBLISH.value())
                 .put((byte) topicBytes.length)
@@ -46,7 +41,7 @@ public class ReceiverTest {
                 .put(id)
                 .array();
 
-        MulticastSocket multicastSocket = new DummyMulticastSocket(packet_expected, host, 1);
+        MulticastSocket multicastSocket = new DummyMulticastSocket(host, new byte[][]{publish_packet});
         SocketWrapper socketWrapper = null;
         ScheduledExecutorService executor = ScheduledExecutorServiceSingleton.getInstance();
         try {
@@ -55,27 +50,44 @@ public class ReceiverTest {
 
             socketWrapper = new SocketWrapper(serverSocket.accept());
 
-            MessageType expectedMessageType = MessageType.REQUEST;
-            int expectedTopicLength = topicBytes.length;
-            byte[] expectedTopic = topicBytes;
-            byte[] expectedId = id;
-
-            byte[] receivedRequestPacket = new byte[1 + 1 + expectedTopicLength + 4];
-            int n = socketWrapper.getInputStream().read(receivedRequestPacket);
+            byte[] receivedPacketData = new byte[1 + 1 + topicBytes.length + 4];
+            int n = socketWrapper.getInputStream().read(receivedPacketData);
             if (n == -1)
                 fail("Received EOF while reading request packet.");
-            else if (n != receivedRequestPacket.length)
+            else if (n != receivedPacketData.length)
                 fail("Received incorrect amount of bytes reading request packet. " +
-                        "Expected: " + receivedRequestPacket.length + ", got: " + n);
+                        "Expected: " + receivedPacketData.length + ", got: " + n);
+
+            /*
+                Expected values
+             */
+            byte expectedMessageType = (byte) MessageType.REQUEST.value();
+            byte expectedTopicLength = (byte) topicBytes.length;
+            String expectedTopic = topic;
+            int expectedId = ByteBuffer.allocate(4).put(id).getInt(0);
+
+            ByteBuffer receivedPacketBuffer = ByteBuffer.allocate(receivedPacketData.length + 11)
+                    .put(receivedPacketData);
+            receivedPacketBuffer.rewind();
+
+            /*
+                Actual values
+             */
+            byte actualMessageType = receivedPacketBuffer.get();
+            byte actualTopicLength = receivedPacketBuffer.get();
+            byte[] actualTopicBytes = new byte[actualTopicLength];
+            receivedPacketBuffer.get(actualTopicBytes);
+            String actualTopic = new String(actualTopicBytes, Protocol.ENCODING);
+            int actualId = receivedPacketBuffer.getInt();
+
 
             /*
                 Verify that received Request packet is correct
              */
-            assertEquals(expectedMessageType.value(), receivedRequestPacket[0]);
-            assertEquals(expectedTopicLength, receivedRequestPacket[1]);
-            assertArrayEquals(expectedTopic, Arrays.copyOfRange(receivedRequestPacket, 2, expectedTopicLength + 2));
-            assertArrayEquals(expectedId, Arrays.copyOfRange(receivedRequestPacket, expectedTopicLength + 2,
-                    expectedTopicLength + 6));
+            assertEquals(expectedMessageType, actualMessageType);
+            assertEquals(expectedTopicLength, actualTopicLength);
+            assertEquals(expectedTopic, actualTopic);
+            assertEquals(expectedId, actualId);
 
             // Send done message immediately before sending text.
             socketWrapper.sendDone();
@@ -86,7 +98,7 @@ public class ReceiverTest {
             multicastSocket.close();
             if (!executor.isShutdown())
                 executor.shutdownNow();
+            Receiver.clear();
         }
     }
-
 }
