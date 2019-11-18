@@ -48,16 +48,15 @@ public class FileProtocol extends Protocol {
     public Iterable<PFile> iter() {
         return () -> new Iterator<PFile>() {
             int index = 0;
-            FileProtocol sup = FileProtocol.this;
 
             @Override
             public boolean hasNext() {
-                return this.index < this.sup.files.length;
+                return this.index < FileProtocol.this.files.length;
             }
 
             @Override
             public PFile next() {
-                return this.sup.files[index++];
+                return FileProtocol.this.files[index++];
             }
         };
     }

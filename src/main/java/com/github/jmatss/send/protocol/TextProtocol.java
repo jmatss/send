@@ -38,27 +38,26 @@ public class TextProtocol extends Protocol {
     public Iterable<byte[]> iter() {
         return () -> new Iterator<byte[]>() {
             int index = 0;
-            TextProtocol sup = TextProtocol.this;
 
             @Override
             public boolean hasNext() {
-                return sup.text.length > this.index * sup.pieceSize;
+                return TextProtocol.this.text.length > this.index * TextProtocol.this.pieceSize;
             }
 
             @Override
             public byte[] next() {
-                int remainingTextSize = sup.text.length - this.index * sup.pieceSize;
-                int pieceSize = Math.min(remainingTextSize, sup.pieceSize);
+                int remainingTextSize = TextProtocol.this.text.length - this.index * TextProtocol.this.pieceSize;
+                int pieceSize = Math.min(remainingTextSize, TextProtocol.this.pieceSize);
 
-                int start = this.index * sup.pieceSize;
+                int start = this.index * TextProtocol.this.pieceSize;
                 int end = start + pieceSize;
 
                 byte[] packet = ByteBuffer
                         .allocate(1 + 4 + 4 + pieceSize)
-                        .put((byte) sup.messageType.value())
+                        .put((byte) TextProtocol.this.messageType.value())
                         .putInt(this.index)
                         .putInt(pieceSize)
-                        .put(Arrays.copyOfRange(sup.text, start, end))
+                        .put(Arrays.copyOfRange(TextProtocol.this.text, start, end))
                         .array();
 
                 this.index++;

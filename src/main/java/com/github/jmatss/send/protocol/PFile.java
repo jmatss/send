@@ -122,15 +122,14 @@ public class PFile {
             @Override
             public Iterator<byte[]> iterator() {
                 return new Iterator<byte[]>() {
-                    PacketIterator sup = PacketIterator.this;
-                    PFile supSup = PFile.this;
 
                     @Override
                     public boolean hasNext() {
-                        boolean result = this.sup.fileLength > this.sup.index * this.supSup.pieceSize;
+                        boolean result =
+                                PacketIterator.this.fileLength > PacketIterator.this.index * PFile.this.pieceSize;
                         if (!result) {
                             try {
-                                this.sup.input.close();
+                                PacketIterator.this.input.close();
                             } catch (IOException e) {
                                 e.printStackTrace();
                             }
@@ -140,13 +139,14 @@ public class PFile {
 
                     @Override
                     public byte[] next() {
-                        long remainingSize = this.sup.fileLength - this.sup.index * this.supSup.pieceSize;
-                        int minPieceSize = (int) Math.min(remainingSize, this.supSup.pieceSize);
+                        long remainingSize =
+                                PacketIterator.this.fileLength - PacketIterator.this.index * PFile.this.pieceSize;
+                        int minPieceSize = (int) Math.min(remainingSize, PFile.this.pieceSize);
 
                         byte[] content = new byte[minPieceSize];
                         byte[] digest;
                         try {
-                            if (this.sup.input.read(content) != minPieceSize)
+                            if (PacketIterator.this.input.read(content) != minPieceSize)
                                 throw new IOException("Incorrect amount of bytes read from file");
                             digest = getPieceDigest(content);
                         } catch (IOException | NoSuchAlgorithmException e) {
@@ -159,22 +159,22 @@ public class PFile {
                         ByteBuffer packet = ByteBuffer
                                 .allocate(1 + 4 + 4 + minPieceSize + 1 + hashLength)
                                 .put((byte) MessageType.FILE_PIECE.value())
-                                .putInt(this.sup.index)
+                                .putInt(PacketIterator.this.index)
                                 .putInt(minPieceSize)
                                 .put(content)
-                                .put((byte) this.supSup.pieceHashType.value());
+                                .put((byte) PFile.this.pieceHashType.value());
                         if (digest != null)
                             packet.put(digest);
 
-                        this.sup.index++;
+                        PacketIterator.this.index++;
                         return packet.array();
                     }
 
                     private byte[] getPieceDigest(byte[] piece) throws IOException, NoSuchAlgorithmException {
-                        if (this.supSup.pieceHashType == HashType.NONE)
+                        if (PFile.this.pieceHashType == HashType.NONE)
                             return null;
                         return MessageDigest
-                                .getInstance(this.supSup.pieceHashType.toString())
+                                .getInstance(PFile.this.pieceHashType.toString())
                                 .digest(piece);
                     }
                 };
