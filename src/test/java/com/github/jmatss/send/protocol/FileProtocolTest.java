@@ -10,6 +10,7 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -170,7 +171,7 @@ public class FileProtocolTest {
 
         TestFile(String name, String path, HashType fileHashType, HashType pieceHashType) {
             this.name = name;
-            this.path = getClass().getClassLoader().getResource(path).getFile();
+            this.path = Objects.requireNonNull(getClass().getClassLoader().getResource(path)).getFile();
             this.fileHashType = fileHashType;
             this.pieceHashType = pieceHashType;
 

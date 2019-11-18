@@ -12,7 +12,6 @@ import java.io.*;
 import java.net.*;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.security.NoSuchAlgorithmException;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.logging.Level;
@@ -187,7 +186,7 @@ public class Controller {
     }
 
     public void publishFile(String topic, String path, long timeout, long interval)
-            throws IOException, IncorrectMessageTypeException, NoSuchAlgorithmException {
+            throws IOException, IncorrectMessageTypeException {
         File f = new File(path);
         if (!f.exists())
             throw new IOException("The path \"" + path + "\" doesn't exist.");
@@ -209,7 +208,7 @@ public class Controller {
             names.add(basePath.relativize(f.toPath()).toString());
             paths.add(f.getPath());
         } else if (f.isDirectory()) {
-            for (File newF : f.listFiles()) {
+            for (File newF : Objects.requireNonNull(f.listFiles())) {
                 if (newF != null)
                     recursePath(newF, basePath, names, paths);
             }
