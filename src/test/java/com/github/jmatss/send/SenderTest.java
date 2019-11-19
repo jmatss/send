@@ -26,7 +26,7 @@ public class SenderTest {
         DummyMulticastSocket mSocket = new DummyMulticastSocket(host);
 
         String topic = "test_topic";
-        byte[] topicBytes = topic.getBytes(Protocol.ENCODING);
+        byte[] topicBytes = topic.getBytes(Controller.ENCODING);
         long timeout = 0;
         long interval = 1;
         Protocol protocol = new TextProtocol(text);
@@ -66,7 +66,7 @@ public class SenderTest {
             byte actualTopicLength = receivedPacketBuffer.get();
             byte[] actualTopicBytes = new byte[actualTopicLength];
             receivedPacketBuffer.get(actualTopicBytes);
-            String actualTopic = new String(actualTopicBytes, Protocol.ENCODING);
+            String actualTopic = new String(actualTopicBytes, Controller.ENCODING);
             byte actualSubMessageType = receivedPacketBuffer.get();
             int actualPort = receivedPacketBuffer.getInt();
             // No tests for actualID

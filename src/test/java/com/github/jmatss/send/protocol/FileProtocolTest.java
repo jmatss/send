@@ -1,5 +1,6 @@
 package com.github.jmatss.send.protocol;
 
+import com.github.jmatss.send.Controller;
 import com.github.jmatss.send.type.HashType;
 import com.github.jmatss.send.type.MessageType;
 import org.junit.jupiter.api.Test;
@@ -7,10 +8,7 @@ import org.junit.jupiter.api.Test;
 import java.io.File;
 import java.io.FileInputStream;
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -79,8 +77,8 @@ public class FileProtocolTest {
 
     @Test
     public void testExceptionIfFileDoesntExist() {
-        String[] paths = {"this_file_doesnt_exist.abc"};
-        String[] names = paths;
+        List<String> paths = Collections.singletonList("this_file_doesnt_exist.abc");
+        List<String> names = paths;
 
         assertThrows(Exception.class, () -> new FileProtocol(names, paths));
     }
@@ -99,12 +97,11 @@ public class FileProtocolTest {
         if (ts.length == 0)
             fail("Incorrect testdata given, can't run test with zero test files");
 
-        String[] names = new String[ts.length];
-        String[] paths = new String[ts.length];
-        int k = 0;
+        List<String> names = new ArrayList<>(ts.length);
+        List<String> paths = new ArrayList<>(ts.length);
         for (TestFile t : ts) {
-            names[k] = t.name;
-            paths[k] = t.path;
+            names.add(t.name);
+            paths.add(t.path);
         }
 
         // TODO: do this better
@@ -176,7 +173,7 @@ public class FileProtocolTest {
             this.pieceHashType = pieceHashType;
 
             try {
-                this.pathBytes = path.getBytes(Protocol.ENCODING);
+                this.pathBytes = path.getBytes(Controller.ENCODING);
                 File file = new File(this.path);
                 this.length = file.length();
                 this.content = new byte[Math.toIntExact(this.length)];

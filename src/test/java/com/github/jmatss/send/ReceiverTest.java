@@ -2,7 +2,7 @@ package com.github.jmatss.send;
 
 import com.github.jmatss.send.mock.DummyMulticastSocket;
 import com.github.jmatss.send.protocol.Protocol;
-import com.github.jmatss.send.protocol.SocketWrapper;
+import com.github.jmatss.send.util.SocketWrapper;
 import com.github.jmatss.send.type.MessageType;
 import com.github.jmatss.send.util.LockableHashSet;
 import com.github.jmatss.send.util.ScheduledExecutorServiceSingleton;
@@ -26,7 +26,7 @@ public class ReceiverTest {
         Path path = Paths.get("");
         String host = "127.0.0.1";
         String topic = "test_topic";
-        byte[] topicBytes = topic.getBytes(Protocol.ENCODING);
+        byte[] topicBytes = topic.getBytes(Controller.ENCODING);
         byte[] id = {0, 0, 0, 1};
         LockableHashSet<String> subscribedTopics = new LockableHashSet<>();
         subscribedTopics.add(topic);
@@ -77,7 +77,7 @@ public class ReceiverTest {
             byte actualTopicLength = receivedPacketBuffer.get();
             byte[] actualTopicBytes = new byte[actualTopicLength];
             receivedPacketBuffer.get(actualTopicBytes);
-            String actualTopic = new String(actualTopicBytes, Protocol.ENCODING);
+            String actualTopic = new String(actualTopicBytes, Controller.ENCODING);
             int actualId = receivedPacketBuffer.getInt();
 
 
