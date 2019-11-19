@@ -58,32 +58,37 @@ public class SocketWrapper {
         return this.out;
     }
 
-    public boolean isDone() throws IOException {
-        nullGuard(this.in);
+    private boolean isByte(byte b) throws IOException {
+        return readByte() == b;
+    }
+
+    private boolean isByte(int b) throws IOException {
+        return readByte() == b;
+    }
+
+    private boolean isByteUnreadIfIncorrect(byte b) throws IOException {
         // Read and remove the first byte from the input stream.
-        // If it isn't a DONE message, put it back into the stream.
-        int messageType = this.in.read();
-        if (messageType == MessageType.DONE.value()) {
+        // If the read byte isn't equal "b", put it back into the stream.
+        byte rb = readByte();
+        if (rb == b) {
             return true;
         } else {
-            this.in.unread(messageType);
+            this.in.unread(rb);
             return false;
         }
     }
 
-    // Removes the first byte
-    // TODO: Maybe return more information so that the caller can see which message type was received.
-    private boolean isMessageType(MessageType localMessageType) throws IOException {
-        return readByte() == localMessageType.value();
+    public boolean isDone() throws IOException {
+        return isByteUnreadIfIncorrect((byte) MessageType.DONE.value());
     }
 
     // TODO: Some sort of check that it is either a yes or no packet, throw exception otherwise
     public boolean isYes() throws IOException {
-        return isMessageType(MessageType.YES);
+        return isByte(MessageType.YES.value());
     }
 
     public boolean isNo() throws IOException {
-        return isMessageType(MessageType.NO);
+        return isByte(MessageType.NO.value());
     }
 
     // TODO: Make these "send...Packet" functions uniform. Ex. by always giving them some sort
@@ -132,7 +137,7 @@ public class SocketWrapper {
     public String receiveText(int localIndex)
             throws IOException, IncorrectMessageTypeException {
         MessageType messageType = MessageType.TEXT;
-        if (!isMessageType(messageType))
+        if (!isByte(messageType.value()))
             throw new IncorrectMessageTypeException("Received incorrect message type");
 
         int remoteIndex = readInt();
@@ -151,7 +156,7 @@ public class SocketWrapper {
     public RequestPacket receiveRequest()
             throws IOException, IncorrectMessageTypeException {
         MessageType messageType = MessageType.REQUEST;
-        if (!isMessageType(messageType))
+        if (!isByte(messageType.value()))
             throw new IncorrectMessageTypeException("Received incorrect message type");
 
         int topicLength = readByte();
@@ -174,7 +179,7 @@ public class SocketWrapper {
     public FileInfoPacket receiveFileInfo()
             throws IOException, IncorrectMessageTypeException, IncorrectHashTypeException {
         MessageType messageType = MessageType.FILE_INFO;
-        if (!isMessageType(messageType))
+        if (!isByte(messageType.value()))
             throw new IncorrectMessageTypeException("Received incorrect message type");
 
         // TODO: Make sure length isn't a weird size (ex. extremely large).
@@ -190,7 +195,7 @@ public class SocketWrapper {
     public PublishPacket receivePublish()
             throws IOException, IncorrectMessageTypeException {
         MessageType messageType = MessageType.PUBLISH;
-        if (!isMessageType(messageType))
+        if (!isByte(messageType.value()))
             throw new IncorrectMessageTypeException("Received incorrect message type");
 
         int topicLength = readByte();
@@ -217,7 +222,7 @@ public class SocketWrapper {
     public byte[] receiveFilePiece(int localIndex)
             throws IOException, IncorrectMessageTypeException, IncorrectHashTypeException, NoSuchAlgorithmException {
         MessageType messageType = MessageType.FILE_PIECE;
-        if (!isMessageType(messageType))
+        if (!isByte(messageType.value()))
             throw new IncorrectMessageTypeException("Received incorrect message type");
 
         int remoteIndex = readInt();
