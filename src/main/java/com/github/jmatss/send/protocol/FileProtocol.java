@@ -4,35 +4,38 @@ import com.github.jmatss.send.type.HashType;
 import com.github.jmatss.send.type.MessageType;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.List;
 
 public class FileProtocol extends Protocol {
     // TODO: dont use File_piece for this, change to something else.
     private final MessageType messageType = MessageType.FILE_PIECE;
-    private PFile[] files;
+    private List<PFile> files;
 
-    public FileProtocol(PFile[] files) {
-        if (files.length == 0)
+    public FileProtocol(List<PFile> files) {
+        if (files.isEmpty())
             throw new IllegalArgumentException("Not allowed to create a FileProtocol with zero files");
         this.files = files;
     }
 
-    public FileProtocol(String[] names, String[] paths, HashType fileHashType, HashType pieceHashType, int pieceSize) throws IOException {
-        if (paths.length == 0)
+    public FileProtocol(List<String> names, List<String> paths, HashType fileHashType, HashType pieceHashType,
+                        int pieceSize) throws IOException {
+        if (paths.isEmpty())
             throw new IllegalArgumentException("Not allowed to create a FileProtocol with zero paths");
-        else if (names.length == 0)
+        else if (names.isEmpty())
             throw new IllegalArgumentException("Not allowed to create a FileProtocol with zero names");
-        else if (paths.length != names.length)
+        else if (paths.size() != names.size())
             throw new IllegalArgumentException("Length of paths and names differ");
 
-        PFile[] files = new PFile[paths.length];
-        for (int i = 0; i < paths.length; i++)
-            files[i] = new PFile(names[i], paths[i], fileHashType, pieceHashType, pieceSize);
+        List<PFile> files = new ArrayList<>(paths.size());
+        for (int i = 0; i < paths.size(); i++)
+            files.add(new PFile(names.get(i), paths.get(i), fileHashType, pieceHashType, pieceSize));
 
         this.files = files;
     }
 
-    public FileProtocol(String[] names, String[] paths) throws IOException {
+    public FileProtocol(List<String> names, List<String> paths) throws IOException {
         this(names, paths, Protocol.DEFAULT_HASH_TYPE, Protocol.DEFAULT_HASH_TYPE, Protocol.DEFAULT_PIECE_SIZE);
     }
 
@@ -51,12 +54,12 @@ public class FileProtocol extends Protocol {
 
             @Override
             public boolean hasNext() {
-                return this.index < FileProtocol.this.files.length;
+                return this.index < FileProtocol.this.files.size();
             }
 
             @Override
             public PFile next() {
-                return FileProtocol.this.files[index++];
+                return FileProtocol.this.files.get(index++);
             }
         };
     }
