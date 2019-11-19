@@ -182,17 +182,7 @@ public class SocketWrapper {
         String name = new String(readN(nameLength), Controller.ENCODING);
         long fileLength = readLong();
         int hashType = readByte();
-        byte[] digest;
-
-        int hashSize;
-        if (hashType == HashType.SHA1.value())
-            hashSize = HashType.SHA1.size();
-        else if (hashType == HashType.MD5.value())
-            hashSize = HashType.MD5.size();
-        else
-            throw new IncorrectHashTypeException("Received incorrect hash type while reading FileInfo packet.");
-
-        digest = readN(hashSize);
+        byte[] digest = readN(HashType.getSize(hashType));
 
         return new FileInfoPacket(nameLength, name, fileLength, hashType, digest);
     }
@@ -239,21 +229,10 @@ public class SocketWrapper {
         byte[] pieceData = readN(pieceLength);
         int hashType = readByte();
 
-        int hashLength;
-        MessageDigest md;
-        // If the hash type isn't none: calculate and compare digest (if the given hash type is valid).
-        if (hashType != HashType.NONE.value()) {
-            if (hashType == HashType.SHA1.value()) {
-                hashLength = HashType.SHA1.size();
-                md = MessageDigest.getInstance(HashType.SHA1.toString());
-            } else if (hashType == HashType.MD5.value()) {
-                hashLength = HashType.MD5.size();
-                md = MessageDigest.getInstance(HashType.MD5.toString());
-            } else {
-                throw new IncorrectHashTypeException("Received incorrect hash type while parsing file piece packet: " + hashType);
-            }
-
-            byte[] packetDigest = readN(hashLength);
+        // A HashType.NONE returns a null md.
+        MessageDigest md = HashType.getMessageDigest(hashType);
+        if (md != null) {
+            byte[] packetDigest = readN(HashType.getSize(hashType));
             byte[] actualDigest = md.digest(pieceData);
             if (!Arrays.equals(actualDigest, packetDigest))
                 throw new IOException("Received packet digest is incorrect. " +
