@@ -17,7 +17,6 @@ import java.util.concurrent.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-// TODO: Fix limitation of only one ip/port(?)
 public class Controller {
     public static final long DEFAULT_PUBLISH_TIMEOUT = 0; // (0 = infinite)
     public static final long DEFAULT_PUBLISH_INTERVAL = 5; // Seconds
@@ -31,29 +30,6 @@ public class Controller {
     private LockableHashSet<String> subscribedTopics;
 
     Controller(String downloadPath, MulticastSocket socket, String ip, int port) throws IOException {
-        init(downloadPath, socket, ip, port);
-    }
-
-    Controller(String downloadPath, MulticastSocket socket, int port, boolean ipv6) throws IOException {
-        try {
-            init(downloadPath, socket, ipv6 ? Protocol.DEFAULT_MULTICAST_IPV6 : Protocol.DEFAULT_MULTICAST_IPV4, port);
-        } catch (UnknownHostException e) {
-            // Should never happen since the default group is a hardcoded correct address.
-            throw new RuntimeException(e);
-        }
-    }
-
-    // Defaults to ipv4
-    Controller(String downloadPath, MulticastSocket socket, int port) throws IOException {
-        this(downloadPath, socket, port, false);
-    }
-
-    // Defaults to ipv4
-    Controller(String downloadPath, MulticastSocket socket) throws IOException {
-        this(downloadPath, socket, Protocol.DEFAULT_PORT, false);
-    }
-
-    private void init(String downloadPath, MulticastSocket socket, String ip, int port) throws IOException {
         if (port > (1 << 16) - 1 || port < 0)
             throw new IllegalArgumentException("Incorrect port number: " + port);
         else if (!InetAddress.getByName(ip).isMulticastAddress())
@@ -71,6 +47,20 @@ public class Controller {
         this.subscribedTopics = new LockableHashSet<>();
         Receiver receiver = Receiver.initInstance(Paths.get(downloadPath), this.socket, this.subscribedTopics);
         this.executor.submit(receiver::start);
+    }
+
+    Controller(String downloadPath, MulticastSocket socket, int port, boolean ipv6) throws IOException {
+        this(downloadPath, socket, ipv6 ? Protocol.DEFAULT_MULTICAST_IPV6 : Protocol.DEFAULT_MULTICAST_IPV4, port);
+    }
+
+    // Defaults to ipv4
+    Controller(String downloadPath, MulticastSocket socket, int port) throws IOException {
+        this(downloadPath, socket, port, false);
+    }
+
+    // Defaults to ipv4
+    Controller(String downloadPath, MulticastSocket socket) throws IOException {
+        this(downloadPath, socket, Protocol.DEFAULT_PORT, false);
     }
 
     public List<Runnable> shutdown() throws IOException {
@@ -108,6 +98,7 @@ public class Controller {
      * @return the topic that can be used to access the created ScheduledFuture if one want's to cancel the
      * publishing before the timeout.
      * @throws IncorrectMessageTypeException thrown if a protocol containing a disallowed MessageType is given.
+     * @throws IOException thrown if it is unable to create a ServerSocket.
      */
     public String publish(Protocol protocol, String topic, long timeout, long interval)
             throws IncorrectMessageTypeException, IOException {
@@ -193,24 +184,22 @@ public class Controller {
         else if (!f.isFile() && !f.isDirectory())
             throw new IOException("The path \"" + path + "\" is neither a file nor a directory.");
 
-        List<String> namesList = new ArrayList<>();
-        List<String> pathsList = new ArrayList<>();
+        List<String> names = new ArrayList<>();
+        List<String> paths = new ArrayList<>();
         Path basePath = f.getParentFile().toPath();
-        recursePath(f, basePath, namesList, pathsList);
-        String[] names = namesList.toArray(new String[0]);
-        String[] paths = pathsList.toArray(new String[0]);
+        getFilesRecursively(f, basePath, names, paths);
 
         publish(new FileProtocol(names, paths), topic, timeout, interval);
     }
 
-    private void recursePath(File f, Path basePath, List<String> names, List<String> paths) {
+    private void getFilesRecursively(File f, Path basePath, List<String> names, List<String> paths) {
         if (f.isFile()) {
             names.add(basePath.relativize(f.toPath()).toString());
             paths.add(f.getPath());
         } else if (f.isDirectory()) {
             for (File newF : Objects.requireNonNull(f.listFiles())) {
                 if (newF != null)
-                    recursePath(newF, basePath, names, paths);
+                    getFilesRecursively(newF, basePath, names, paths);
             }
         }
     }
