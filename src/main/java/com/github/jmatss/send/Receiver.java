@@ -5,7 +5,7 @@ import com.github.jmatss.send.exception.IncorrectMessageTypeException;
 import com.github.jmatss.send.packet.FileInfoPacket;
 import com.github.jmatss.send.packet.PublishPacket;
 import com.github.jmatss.send.protocol.Protocol;
-import com.github.jmatss.send.protocol.SocketWrapper;
+import com.github.jmatss.send.util.SocketWrapper;
 import com.github.jmatss.send.type.MessageType;
 import com.github.jmatss.send.util.LockableHashSet;
 import com.github.jmatss.send.util.ScheduledExecutorServiceSingleton;

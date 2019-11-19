@@ -6,6 +6,7 @@ import com.github.jmatss.send.protocol.*;
 import com.github.jmatss.send.util.ClosableWrapper;
 import com.github.jmatss.send.util.LockableHashMap;
 import com.github.jmatss.send.util.ScheduledExecutorServiceSingleton;
+import com.github.jmatss.send.util.SocketWrapper;
 
 import java.io.IOException;
 import java.net.ServerSocket;

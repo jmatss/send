@@ -1,5 +1,6 @@
-package com.github.jmatss.send.protocol;
+package com.github.jmatss.send.util;
 
+import com.github.jmatss.send.protocol.Protocol;
 import com.github.jmatss.send.type.HashType;
 import com.github.jmatss.send.type.MessageType;
 import com.github.jmatss.send.exception.IncorrectHashTypeException;
@@ -39,12 +40,9 @@ public class SocketWrapper {
     }
 
     public void close() throws IOException {
-        if (this.in != null)
-            this.in.close();
-        if (this.out != null)
-            this.out.close();
-        if (this.socket != null)
-            this.socket.close();
+        if (this.in != null) this.in.close();
+        if (this.out != null) this.out.close();
+        if (this.socket != null) this.socket.close();
     }
 
     public Socket getSocket() {
@@ -59,14 +57,6 @@ public class SocketWrapper {
         return this.out;
     }
 
-    /**
-     * Sees if the latest received packet is a "done" packet.
-     * Also makes sure that the index received in the done packet is the same as the local index to make sure that
-     * the clients haven't gone out of sync.
-     *
-     * @return a boolean indicating if the packet is a done packet or not.
-     * @throws IOException if it is unable to read from the input stream.
-     */
     public boolean isDone() throws IOException {
         nullGuard(this.in);
         // Read and remove the first byte from the input stream.
