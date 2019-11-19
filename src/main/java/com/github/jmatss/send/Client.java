@@ -58,12 +58,12 @@ public class Client {
                                 System.out.print("Topic: ");
                                 topic = in.nextLine();
                             }
-                            if (topic.length() == 0)
+                            if (topic.isEmpty())
                                 throw new IllegalArgumentException("Empty topic not allowed.");
 
                             System.out.print("Send t[ext]/f[iles] (default: text): ");
                             input = in.nextLine();
-                            if (!input.isEmpty() && input.getBytes(Protocol.ENCODING)[0] == 'f')
+                            if (!input.isEmpty() && input.charAt(0) == 'f')
                                 text = false;
 
                             if (text)
@@ -71,30 +71,18 @@ public class Client {
                             else
                                 System.out.print("Path: ");
                             textOrPath = in.nextLine();
-                            if (textOrPath.length() == 0)
+                            if (textOrPath.isEmpty())
                                 throw new IllegalArgumentException("Empty input not allowed.");
 
                             System.out.print("Timeout (default: " + timeout + " s, 0 = infinite): ");
                             input = in.nextLine();
-                            if (!input.isEmpty()) {
-                                try {
-                                    timeout = Long.parseLong(input);
-                                } catch (NumberFormatException e) {
-                                    System.out.println("Unable to parse timeout string: " + e.getMessage());
-                                    break;
-                                }
-                            }
+                            if (!input.isEmpty())
+                                timeout = Long.parseLong(input);
 
                             System.out.print("Interval (default: " + interval + " s): ");
                             input = in.nextLine();
-                            if (!input.isEmpty()) {
-                                try {
-                                    interval = Long.parseLong(input);
-                                } catch (NumberFormatException e) {
-                                    System.out.println("Unable to parse interval string: " + e.getMessage());
-                                    break;
-                                }
-                            }
+                            if (!input.isEmpty())
+                                interval = Long.parseLong(input);
 
                             if (text)
                                 controller.publishText(topic, textOrPath, timeout, interval);
