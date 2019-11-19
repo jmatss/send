@@ -172,11 +172,9 @@ public class PFile {
                     }
 
                     private byte[] getPieceDigest(byte[] piece) throws NoSuchAlgorithmException {
-                        if (PFile.this.pieceHashType == HashType.NONE)
-                            return null;
-                        return MessageDigest
-                                .getInstance(PFile.this.pieceHashType.toString())
-                                .digest(piece);
+                        return (PFile.this.pieceHashType != HashType.NONE)
+                                ? MessageDigest.getInstance(PFile.this.pieceHashType.toString()).digest(piece)
+                                : null;
                     }
                 };
             }
