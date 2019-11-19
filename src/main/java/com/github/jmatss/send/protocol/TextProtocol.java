@@ -1,5 +1,6 @@
 package com.github.jmatss.send.protocol;
 
+import com.github.jmatss.send.Controller;
 import com.github.jmatss.send.type.MessageType;
 
 import java.io.UnsupportedEncodingException;
@@ -17,7 +18,7 @@ public class TextProtocol extends Protocol {
             throw new IllegalArgumentException(String.format("pieceSize > Protocol.MAX_PIECE_SIZE: (%d > %d)",
                     pieceSize, Protocol.MAX_PIECE_SIZE));
 
-        this.text = text.getBytes(Protocol.ENCODING);
+        this.text = text.getBytes(Controller.ENCODING);
         this.pieceSize = pieceSize;
     }
 

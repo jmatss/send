@@ -1,5 +1,6 @@
 package com.github.jmatss.send.protocol;
 
+import com.github.jmatss.send.Controller;
 import com.github.jmatss.send.type.HashType;
 import com.github.jmatss.send.type.MessageType;
 
@@ -13,7 +14,6 @@ abstract public class Protocol<T> {
     public static final int MAX_PIECE_SIZE = 1 << 16;
     public static final int DEFAULT_PIECE_SIZE = 1 << 16;
     public static final HashType DEFAULT_HASH_TYPE = HashType.SHA1;
-    public static final String ENCODING = "UTF-8";
     private byte[] id;
 
     // Flags: R=0, P=0, T=1, Scope: Link-local (2)
@@ -32,7 +32,7 @@ abstract public class Protocol<T> {
 
         byte[] topicBytes;
         try {
-            topicBytes = topic.getBytes(ENCODING);
+            topicBytes = topic.getBytes(Controller.ENCODING);
         } catch (UnsupportedEncodingException e) {
             // Should never happen since the ENCODING is a hardcoded correct encoding.
             throw new RuntimeException(e);

@@ -1,5 +1,6 @@
 package com.github.jmatss.send.protocol;
 
+import com.github.jmatss.send.Controller;
 import com.github.jmatss.send.type.HashType;
 import com.github.jmatss.send.type.MessageType;
 
@@ -92,7 +93,7 @@ public class PFile {
                 .allocate(1 + 4 + this.name.length() + 1 + digest.length + 8)
                 .put((byte) MessageType.FILE_INFO.value())
                 .putInt(this.name.length())
-                .put(this.name.getBytes(Protocol.ENCODING))
+                .put(this.name.getBytes(Controller.ENCODING))
                 .putLong(new File(this.path).length())
                 .put((byte) this.fileHashType.value())
                 .put(digest)

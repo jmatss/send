@@ -18,6 +18,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 public class Controller {
+    public static final String ENCODING = "UTF-8";
     public static final long DEFAULT_PUBLISH_TIMEOUT = 0; // (0 = infinite)
     public static final long DEFAULT_PUBLISH_INTERVAL = 5; // Seconds
 

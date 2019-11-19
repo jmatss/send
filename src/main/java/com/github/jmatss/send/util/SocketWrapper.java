@@ -1,5 +1,6 @@
 package com.github.jmatss.send.util;
 
+import com.github.jmatss.send.Controller;
 import com.github.jmatss.send.protocol.Protocol;
 import com.github.jmatss.send.type.HashType;
 import com.github.jmatss.send.type.MessageType;
@@ -98,7 +99,7 @@ public class SocketWrapper {
                 .allocate(1 + 1 + pp.topicLength + 4)
                 .put((byte) MessageType.REQUEST.value())
                 .put((byte) pp.topicLength)
-                .put(pp.topic.getBytes(Protocol.ENCODING))
+                .put(pp.topic.getBytes(Controller.ENCODING))
                 .put(pp.id)
                 .array());
     }
@@ -144,7 +145,7 @@ public class SocketWrapper {
             throw new IOException("textLength > Protocol.MAX_PIECE_SIZE (" +
                     textLength + " > " + Protocol.MAX_PIECE_SIZE);
 
-        return new String(readN(textLength), Protocol.ENCODING);
+        return new String(readN(textLength), Controller.ENCODING);
     }
 
     public RequestPacket receiveRequest()
@@ -154,7 +155,7 @@ public class SocketWrapper {
             throw new IncorrectMessageTypeException("Received incorrect message type");
 
         int topicLength = readByte();
-        String topic = new String(readN(topicLength), Protocol.ENCODING);
+        String topic = new String(readN(topicLength), Controller.ENCODING);
         byte[] id = readN(4);
 
         return new RequestPacket(topicLength, topic, id);
@@ -178,7 +179,7 @@ public class SocketWrapper {
 
         // TODO: Make sure length isn't a weird size (ex. extremely large).
         int nameLength = readInt();
-        String name = new String(readN(nameLength), Protocol.ENCODING);
+        String name = new String(readN(nameLength), Controller.ENCODING);
         long fileLength = readLong();
         int hashType = readByte();
         byte[] digest;
@@ -203,7 +204,7 @@ public class SocketWrapper {
             throw new IncorrectMessageTypeException("Received incorrect message type");
 
         int topicLength = readByte();
-        String topic = new String(readN(topicLength), Protocol.ENCODING);
+        String topic = new String(readN(topicLength), Controller.ENCODING);
         int subMessageType = readByte();
         int port = readInt();
         byte[] id = readN(4);
