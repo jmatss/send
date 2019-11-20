@@ -56,7 +56,7 @@ public class ReceiverTest {
         MulticastSocket multicastSocket = new DummyMulticastSocket(host, new byte[][]{publish_packet});
         SocketWrapper socketWrapper = null;
         try {
-            Receiver receiver = Receiver.initInstance(path, multicastSocket, subscribedTopics);
+            Receiver receiver = new Receiver(path, multicastSocket, subscribedTopics);
             executor.submit(receiver::start);
 
             socketWrapper = new SocketWrapper(serverSocket.accept());
@@ -107,7 +107,6 @@ public class ReceiverTest {
                 socketWrapper.close();
             serverSocket.close();
             multicastSocket.close();
-            Receiver.clear();
         }
     }
 }

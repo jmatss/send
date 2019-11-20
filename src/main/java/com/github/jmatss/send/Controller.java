@@ -23,12 +23,15 @@ public class Controller {
     public static final long DEFAULT_PUBLISH_INTERVAL = 5; // Seconds
 
     private static final Logger LOGGER = Logger.getLogger(Controller.class.getName());
-    private ScheduledExecutorService executor;
-    private MulticastSocket socket;
-    private InetAddress ip;
-    private int port;
-    private LockableHashMap<String, ClosableWrapper> publishedTopics;
-    private LockableHashSet<String> subscribedTopics;
+    private final ScheduledExecutorService executor;
+    private final MulticastSocket socket;
+    private final InetAddress ip;
+    private final int port;
+
+    private final Sender sender;
+    private final LockableHashMap<String, ClosableWrapper> publishedTopics;
+    private final Receiver receiver;
+    private final LockableHashSet<String> subscribedTopics;
 
     Controller(String downloadPath, MulticastSocket socket, String ip, int port) throws IOException {
         if (port > (1 << 16) - 1 || port < 0)
@@ -43,10 +46,10 @@ public class Controller {
         this.socket.joinGroup(this.ip);
 
         this.publishedTopics = new LockableHashMap<>();
-        Sender.initInstance(this.publishedTopics);
+        this.sender = new Sender(this.publishedTopics);
 
         this.subscribedTopics = new LockableHashSet<>();
-        Receiver receiver = Receiver.initInstance(Paths.get(downloadPath), this.socket, this.subscribedTopics);
+        this.receiver = new Receiver(Paths.get(downloadPath), this.socket, this.subscribedTopics);
         this.executor.submit(receiver::start);
     }
 
@@ -85,7 +88,7 @@ public class Controller {
     }
 
     public void setPath(String downloadPath) {
-        Receiver.getInstance().setPath(Paths.get(downloadPath));
+        this.receiver.setPath(Paths.get(downloadPath));
     }
 
     /**
@@ -117,7 +120,7 @@ public class Controller {
             Future<?> listener = this.executor.submit(
                     () -> {
                         try {
-                            Sender.getInstance().listen(serverSocket, protocol);
+                            this.sender.listen(serverSocket, protocol);
                         } catch (IOException e) {
                             LOGGER.log(Level.SEVERE, "Exception while listening on server socket: " + e.getMessage());
                         }

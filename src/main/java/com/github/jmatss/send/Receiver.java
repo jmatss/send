@@ -30,7 +30,6 @@ public class Receiver {
     public static final int SOCKET_TIMEOUT = 5000; // ms
     public static final int MAX_ID_CACHE_SIZE = 1 << 20;
     private static final Logger LOGGER = Logger.getLogger(Receiver.class.getName());
-    private static Receiver instance;
 
     private final ScheduledExecutorService executor;
     private final MulticastSocket multicastSocket;
@@ -38,26 +37,12 @@ public class Receiver {
     private final Set<ByteBuffer> idCache;  // Caches downloaded ID's so they dont get downloaded again
     private Path downloadPath;
 
-    private Receiver(Path downloadPath, MulticastSocket multicastSocket, LockableHashSet<String> subscribedTopics) {
+    public Receiver(Path downloadPath, MulticastSocket multicastSocket, LockableHashSet<String> subscribedTopics) {
         this.downloadPath = downloadPath;
         this.executor = ScheduledExecutorServiceSingleton.getInstance();
         this.multicastSocket = multicastSocket;
         this.subscribedTopics = subscribedTopics;
         this.idCache = Collections.synchronizedSet(new HashSet<>());
-    }
-
-    public static Receiver initInstance(Path downloadPath, MulticastSocket socket,
-                                        LockableHashSet<String> subscribedTopics) {
-        if (Receiver.instance != null)
-            throw new ExceptionInInitializerError("Receiver already initialized.");
-        Receiver.instance = new Receiver(downloadPath, socket, subscribedTopics);
-        return Receiver.instance;
-    }
-
-    public static Receiver getInstance() {
-        if (Receiver.instance == null)
-            throw new NullPointerException("Receiver instance is null.");
-        return Receiver.instance;
     }
 
     public void setPath(Path downloadPath) {
@@ -187,10 +172,5 @@ public class Receiver {
             LOGGER.log(Level.INFO, "Received text message:\n" + sb.toString());
         else
             LOGGER.log(Level.INFO, "Received empty text message");
-    }
-
-    // FIXME: Ugly hack for testing, find another way to do this.
-    public static void clear() {
-        Receiver.instance = null;
     }
 }

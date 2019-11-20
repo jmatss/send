@@ -19,28 +19,13 @@ import java.util.logging.Logger;
 
 public class Sender {
     private static final Logger LOGGER = Logger.getLogger(Sender.class.getName());
-    private static Sender instance;
 
     private final ScheduledExecutorService executor;
     private final LockableHashMap<String, ClosableWrapper> publishedTopics;
 
-    private Sender(LockableHashMap<String, ClosableWrapper> publishedTopics) {
+    public Sender(LockableHashMap<String, ClosableWrapper> publishedTopics) {
         this.executor = ScheduledExecutorServiceSingleton.getInstance();
         this.publishedTopics = publishedTopics;
-    }
-
-    public static Sender initInstance(LockableHashMap<String, ClosableWrapper> publishedTopics)
-            throws ExceptionInInitializerError {
-        if (Sender.instance != null)
-            throw new ExceptionInInitializerError("Sender already initialized.");
-        Sender.instance = new Sender(publishedTopics);
-        return Sender.instance;
-    }
-
-    public static Sender getInstance() {
-        if (Sender.instance == null)
-            throw new NullPointerException("Sender instance is null.");
-        return Sender.instance;
     }
 
     // TODO: fix so that the "send" function sends all packets before exiting if the task gets a cancel.
