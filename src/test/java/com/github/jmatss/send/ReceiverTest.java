@@ -1,12 +1,10 @@
 package com.github.jmatss.send;
 
 import com.github.jmatss.send.mock.DummyMulticastSocket;
-import com.github.jmatss.send.protocol.Protocol;
 import com.github.jmatss.send.util.SocketWrapper;
 import com.github.jmatss.send.type.MessageType;
 import com.github.jmatss.send.util.LockableHashSet;
-import com.github.jmatss.send.util.ScheduledExecutorServiceSingleton;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.*;
 
 import java.io.IOException;
 import java.net.MulticastSocket;
@@ -14,11 +12,25 @@ import java.net.ServerSocket;
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 public class ReceiverTest {
+    private static ScheduledExecutorService executor;
+
+    @BeforeEach
+    public static void setUp() {
+        int processors = Runtime.getRuntime().availableProcessors();
+        executor = Executors.newScheduledThreadPool(processors);
+    }
+
+    @AfterEach
+    public static void tearDown() {
+        executor.shutdownNow();
+    }
+
     @Test
     public void testReceiverSendsRequestPacketCorrectlyToSubscribedTopic() throws IOException {
         MessageType subMessageType = MessageType.TEXT;
@@ -43,7 +55,6 @@ public class ReceiverTest {
 
         MulticastSocket multicastSocket = new DummyMulticastSocket(host, new byte[][]{publish_packet});
         SocketWrapper socketWrapper = null;
-        ScheduledExecutorService executor = ScheduledExecutorServiceSingleton.getInstance();
         try {
             Receiver receiver = Receiver.initInstance(path, multicastSocket, subscribedTopics);
             executor.submit(receiver::start);
@@ -96,8 +107,6 @@ public class ReceiverTest {
                 socketWrapper.close();
             serverSocket.close();
             multicastSocket.close();
-            if (!executor.isShutdown())
-                executor.shutdownNow();
             Receiver.clear();
         }
     }
