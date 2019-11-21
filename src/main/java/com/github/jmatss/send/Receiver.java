@@ -4,6 +4,7 @@ import com.github.jmatss.send.exception.IncorrectHashTypeException;
 import com.github.jmatss.send.exception.IncorrectMessageTypeException;
 import com.github.jmatss.send.packet.FileInfoPacket;
 import com.github.jmatss.send.packet.PublishPacket;
+import com.github.jmatss.send.packet.RequestPacket;
 import com.github.jmatss.send.protocol.Protocol;
 import com.github.jmatss.send.util.SocketWrapper;
 import com.github.jmatss.send.type.MessageType;
@@ -58,9 +59,9 @@ public class Receiver {
 
                 if (packet.getData().length == 0)
                     throw new IOException("Received empty packet");
-                else if (packet.getData()[packet.getOffset()] != MessageType.PUBLISH.value())
+                else if (packet.getData()[packet.getOffset()] != MessageType.PUBLISH.getValue())
                     throw new IncorrectMessageTypeException("Received incorrect MessageType. " +
-                            "Expected: " + MessageType.PUBLISH.value() +
+                            "Expected: " + MessageType.PUBLISH.getValue() +
                             ", got: " + packet.getData()[packet.getOffset()]);
                 else if (packet.getLength() < Protocol.MIN_PUBLISH_PACKET_SIZE)
                     throw new IOException("Received to few byte: " + packet.getLength());
@@ -85,27 +86,28 @@ public class Receiver {
             PublishPacket pp = new SocketWrapper(new ByteArrayInputStream(content)).receivePublish();
 
             try (LockableHashSet l = this.subscribedTopics.lock()) {
-                if (!this.subscribedTopics.contains(pp.topic) || this.idCache.contains(ByteBuffer.wrap(pp.id)))
+                if (!this.subscribedTopics.contains(pp.getTopic()) || this.idCache.contains(ByteBuffer.wrap(pp.getId())))
                     return;
             }
 
-            socketWrapper = new SocketWrapper(new Socket(packet.getAddress(), pp.port));
+            socketWrapper = new SocketWrapper(new Socket(packet.getAddress(), pp.getPort()));
             socketWrapper.getSocket().setSoTimeout(SOCKET_TIMEOUT);
 
-            socketWrapper.sendRequest(pp);
-            if (pp.subMessageType == MessageType.FILE_PIECE.value())
+            // Construct the request packet out of data received from the publish packet.
+            RequestPacket rp = new RequestPacket(pp.getTopic(), pp.getId());
+            socketWrapper.sendPacket(rp);
+            if (pp.getSubMessageType() == MessageType.FILE_PIECE)
                 receiveFile(socketWrapper);
-            else if (pp.subMessageType == MessageType.TEXT.value())
+            else if (pp.getSubMessageType() == MessageType.TEXT)
                 receiveText(socketWrapper);
             else
-                throw new RuntimeException("Incorrect subMessageType received: " + pp.subMessageType);
+                throw new RuntimeException("Incorrect subMessageType received: " + pp.getSubMessageType());
 
             // TODO: Better way to to make sure the idCache doesn't overflow (?)
             if (this.idCache.size() > MAX_ID_CACHE_SIZE)
                 this.idCache.clear();
-            this.idCache.add(ByteBuffer.wrap(pp.id));
-        } catch (IOException | RuntimeException | IncorrectHashTypeException
-                | IncorrectMessageTypeException | NoSuchAlgorithmException e) {
+            this.idCache.add(ByteBuffer.wrap(pp.getId()));
+        } catch (IOException | RuntimeException | IncorrectHashTypeException | IncorrectMessageTypeException e) {
             // TODO: Implement better exception handling.
             e.printStackTrace();
             LOGGER.log(Level.SEVERE, e.getMessage());
@@ -122,7 +124,7 @@ public class Receiver {
     }
 
     private void receiveFile(SocketWrapper socketWrapper)
-            throws IOException, IncorrectHashTypeException, IncorrectMessageTypeException, NoSuchAlgorithmException {
+            throws IOException, IncorrectHashTypeException, IncorrectMessageTypeException {
         while (true) {
             if (socketWrapper.isDone())
                 break;
@@ -131,7 +133,7 @@ public class Receiver {
 
             // If the file already exists on this local host, don't download it again.
             // TODO: More checking, ex see if hash is the same; if not, download with another name.
-            File file = Paths.get(this.downloadPath.toString(), fileInfoPacket.name).toFile();
+            File file = Paths.get(this.downloadPath.toString(), fileInfoPacket.getName()).toFile();
             if (!file.exists()) {
                 if (!file.getParentFile().mkdirs() && !file.getParentFile().exists())
                     throw new IOException("Unable to create folders " + file.getParentFile().toString());
@@ -140,14 +142,14 @@ public class Receiver {
                 try (OutputStream fileWriter = new FileOutputStream(file)) {
                     int index = 0;
                     while (!socketWrapper.isDone()) {
-                        fileWriter.write(socketWrapper.receiveFilePiece(index));
+                        fileWriter.write(socketWrapper.receiveFilePiece(index).getBytes());
                         index++;
                     }
 
-                    if (file.length() != fileInfoPacket.fileLength) {
+                    if (file.length() != fileInfoPacket.getFileLength()) {
                         // TODO: return custom error(?)
-                        LOGGER.log(Level.SEVERE, "Unable to download whole file " + fileInfoPacket.name +
-                                ". Expected: " + fileInfoPacket.fileLength + " bytes, " +
+                        LOGGER.log(Level.SEVERE, "Unable to download whole file " + fileInfoPacket.getName() +
+                                ". Expected: " + fileInfoPacket.getFileLength() + " bytes, " +
                                 "got: " + file.length() + " bytes");
                     }
                 }

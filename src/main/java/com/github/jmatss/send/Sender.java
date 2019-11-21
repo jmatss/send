@@ -1,7 +1,9 @@
 package com.github.jmatss.send;
 
 import com.github.jmatss.send.exception.IncorrectMessageTypeException;
+import com.github.jmatss.send.packet.FilePiecePacket;
 import com.github.jmatss.send.packet.RequestPacket;
+import com.github.jmatss.send.packet.TextPacket;
 import com.github.jmatss.send.protocol.*;
 import com.github.jmatss.send.util.ClosableWrapper;
 import com.github.jmatss.send.util.LockableHashMap;
@@ -45,9 +47,9 @@ public class Sender {
         try {
             RequestPacket rp = socketWrapper.receiveRequest();
             try (LockableHashMap l = this.publishedTopics.lock()) {
-                if (!this.publishedTopics.containsKey(rp.topic))
+                if (!this.publishedTopics.containsKey(rp.getTopic()))
                     throw new IllegalArgumentException("Received a request with a non published topic specified: " +
-                            rp.topic);
+                            rp.getTopic());
             }
 
             if (protocol instanceof FileProtocol)
@@ -57,7 +59,7 @@ public class Sender {
             else
                 throw new RuntimeException("Incorrect protocol class");
 
-        } catch (IOException | IncorrectMessageTypeException | NoSuchAlgorithmException e) {
+        } catch (IOException | IncorrectMessageTypeException e) {
             LOGGER.log(Level.SEVERE, e.getMessage());
         } finally {
             try {
@@ -68,14 +70,13 @@ public class Sender {
         }
     }
 
-    private void sendFile(SocketWrapper socketWrapper, FileProtocol fileProtocol)
-            throws IOException, NoSuchAlgorithmException {
+    private void sendFile(SocketWrapper socketWrapper, FileProtocol fileProtocol) throws IOException {
         for (PFile pfile : fileProtocol.iter()) {
-            socketWrapper.sendFileInfo(pfile.getFileInfoPacket());
+            socketWrapper.sendPacket(pfile.getFileInfoPacket());
 
             if (socketWrapper.isYes()) {
-                for (byte[] filePiece : pfile.packetIterator())
-                    socketWrapper.sendFilePiece(filePiece);
+                for (FilePiecePacket filePiece : pfile.packetIterator())
+                    socketWrapper.sendPacket(filePiece);
                 socketWrapper.sendDone();
             }
         }
@@ -83,8 +84,8 @@ public class Sender {
     }
 
     private void sendText(SocketWrapper socketWrapper, TextProtocol textProtocol) throws IOException {
-        for (byte[] textPacket : textProtocol.iter())
-            socketWrapper.sendText(textPacket);
+        for (TextPacket textPacket : textProtocol.iter())
+            socketWrapper.sendPacket(textPacket);
         socketWrapper.sendDone();
     }
 }
