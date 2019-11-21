@@ -1,14 +1,12 @@
 package com.github.jmatss.send.util;
 
 import com.github.jmatss.send.Controller;
+import com.github.jmatss.send.packet.*;
 import com.github.jmatss.send.protocol.Protocol;
 import com.github.jmatss.send.type.HashType;
 import com.github.jmatss.send.type.MessageType;
 import com.github.jmatss.send.exception.IncorrectHashTypeException;
 import com.github.jmatss.send.exception.IncorrectMessageTypeException;
-import com.github.jmatss.send.packet.FileInfoPacket;
-import com.github.jmatss.send.packet.PublishPacket;
-import com.github.jmatss.send.packet.RequestPacket;
 
 import java.io.*;
 import java.net.Socket;
@@ -79,65 +77,44 @@ public class SocketWrapper {
     }
 
     public boolean isDone() throws IOException {
-        return isByteUnreadIfIncorrect((byte) MessageType.DONE.value());
+        return isByteUnreadIfIncorrect((byte) MessageType.DONE.getValue());
     }
 
     // TODO: Some sort of check that it is either a yes or no packet, throw exception otherwise
     public boolean isYes() throws IOException {
-        return isByte(MessageType.YES.value());
+        return isByte(MessageType.YES.getValue());
     }
 
     public boolean isNo() throws IOException {
-        return isByte(MessageType.NO.value());
+        return isByte(MessageType.NO.getValue());
     }
 
-    // TODO: Make these "send...Packet" functions uniform. Ex. by always giving them some sort
-    //  of "packet-class" instead of the current different second arguments.
+    public void sendByte(byte b) throws IOException {
+        nullGuard(this.out);
+        this.out.write(b);
+    }
+
+    public void sendPacket(Packet packet) throws IOException {
+        nullGuard(this.out);
+        this.out.write(packet.getBytes());
+    }
+
     public void sendDone() throws IOException {
-        nullGuard(this.out);
-        this.out.write((byte) MessageType.DONE.value());
-    }
-
-    public void sendRequest(PublishPacket pp) throws IOException {
-        nullGuard(this.out);
-        this.out.write(ByteBuffer
-                .allocate(1 + 1 + pp.topicLength + 4)
-                .put((byte) MessageType.REQUEST.value())
-                .put((byte) pp.topicLength)
-                .put(pp.topic.getBytes(Controller.ENCODING))
-                .put(pp.id)
-                .array());
-    }
-
-    public void sendPacket(byte... packet) throws IOException {
-        nullGuard(this.out);
-        this.out.write(packet);
-    }
-
-    public void sendText(byte[] textPacket) throws IOException {
-        sendPacket(textPacket);
-    }
-
-    public void sendFileInfo(byte[] fileInfo) throws IOException {
-        sendPacket(fileInfo);
-    }
-
-    public void sendFilePiece(byte[] filePiece) throws IOException {
-        sendPacket(filePiece);
+        sendByte((byte) MessageType.DONE.getValue());
     }
 
     public void sendYes() throws IOException {
-        sendPacket((byte) MessageType.YES.value());
+        sendByte((byte) MessageType.YES.getValue());
     }
 
     public void sendNo() throws IOException {
-        sendPacket((byte) MessageType.NO.value());
+        sendByte((byte) MessageType.NO.getValue());
     }
 
     public String receiveText(int localIndex)
             throws IOException, IncorrectMessageTypeException {
         MessageType messageType = MessageType.TEXT;
-        if (!isByte(messageType.value()))
+        if (!isByte(messageType.getValue()))
             throw new IncorrectMessageTypeException("Received incorrect message type");
 
         int remoteIndex = readInt();
@@ -156,14 +133,14 @@ public class SocketWrapper {
     public RequestPacket receiveRequest()
             throws IOException, IncorrectMessageTypeException {
         MessageType messageType = MessageType.REQUEST;
-        if (!isByte(messageType.value()))
+        if (!isByte(messageType.getValue()))
             throw new IncorrectMessageTypeException("Received incorrect message type");
 
         int topicLength = readByte();
         String topic = new String(readN(topicLength), Controller.ENCODING);
         byte[] id = readN(4);
 
-        return new RequestPacket(topicLength, topic, id);
+        return new RequestPacket(topic, id);
     }
 
     /**
@@ -179,32 +156,32 @@ public class SocketWrapper {
     public FileInfoPacket receiveFileInfo()
             throws IOException, IncorrectMessageTypeException, IncorrectHashTypeException {
         MessageType messageType = MessageType.FILE_INFO;
-        if (!isByte(messageType.value()))
+        if (!isByte(messageType.getValue()))
             throw new IncorrectMessageTypeException("Received incorrect message type");
 
         // TODO: Make sure length isn't a weird size (ex. extremely large).
         int nameLength = readInt();
         String name = new String(readN(nameLength), Controller.ENCODING);
         long fileLength = readLong();
-        int hashType = readByte();
-        byte[] digest = readN(HashType.getSize(hashType));
+        HashType hashType = HashType.valueOf(readByte());
+        byte[] digest = readN(hashType.getSize());
 
-        return new FileInfoPacket(nameLength, name, fileLength, hashType, digest);
+        return new FileInfoPacket(name, fileLength, hashType, digest);
     }
 
     public PublishPacket receivePublish()
             throws IOException, IncorrectMessageTypeException {
         MessageType messageType = MessageType.PUBLISH;
-        if (!isByte(messageType.value()))
+        if (!isByte(messageType.getValue()))
             throw new IncorrectMessageTypeException("Received incorrect message type");
 
         int topicLength = readByte();
         String topic = new String(readN(topicLength), Controller.ENCODING);
-        int subMessageType = readByte();
+        MessageType subMessageType = MessageType.valueOf(readByte());
         int port = readInt();
         byte[] id = readN(4);
 
-        return new PublishPacket(subMessageType, topicLength, topic, port, id);
+        return new PublishPacket(topic, subMessageType, port, id);
     }
 
     /**
@@ -217,12 +194,11 @@ public class SocketWrapper {
      *                                       EOF.
      * @throws IncorrectMessageTypeException if the file info packet contains an invalid MessageType.
      * @throws IncorrectHashTypeException    if the file info packet contains an invalid HashType.
-     * @throws NoSuchAlgorithmException      if a incorrect hash function is used.
      */
-    public byte[] receiveFilePiece(int localIndex)
-            throws IOException, IncorrectMessageTypeException, IncorrectHashTypeException, NoSuchAlgorithmException {
+    public FilePiecePacket receiveFilePiece(int localIndex)
+            throws IOException, IncorrectMessageTypeException, IncorrectHashTypeException {
         MessageType messageType = MessageType.FILE_PIECE;
-        if (!isByte(messageType.value()))
+        if (!isByte(messageType.getValue()))
             throw new IncorrectMessageTypeException("Received incorrect message type");
 
         int remoteIndex = readInt();
@@ -232,20 +208,16 @@ public class SocketWrapper {
 
         int pieceLength = readInt();
         byte[] pieceData = readN(pieceLength);
-        int hashType = readByte();
+        HashType hashType = HashType.valueOf(readByte());
 
-        // A HashType.NONE returns a null md.
-        MessageDigest md = HashType.getMessageDigest(hashType);
-        if (md != null) {
-            byte[] packetDigest = readN(HashType.getSize(hashType));
-            byte[] actualDigest = md.digest(pieceData);
-            if (!Arrays.equals(actualDigest, packetDigest))
-                throw new IOException("Received packet digest is incorrect. " +
-                        "Calculated digest of received piece data: " + Arrays.toString(actualDigest) +
-                        ", digest received from remote: " + Arrays.toString(packetDigest));
-        }
+        byte[] packetDigest = readN(hashType.getSize());
+        byte[] actualDigest = hashType.getMessageDigest().digest(pieceData);
+        if (!Arrays.equals(actualDigest, packetDigest))
+            throw new IOException("Received packet digest is incorrect. " +
+                    "Calculated digest of received piece data: " + Arrays.toString(actualDigest) +
+                    ", digest received from remote: " + Arrays.toString(packetDigest));
 
-        return pieceData;
+        return new FilePiecePacket(remoteIndex, pieceData, hashType);
     }
 
     private byte[] readN(int n) throws IOException {
