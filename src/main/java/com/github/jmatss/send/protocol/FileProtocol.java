@@ -13,12 +13,6 @@ public class FileProtocol extends Protocol {
     private final MessageType messageType = MessageType.FILE_PIECE;
     private List<PFile> files;
 
-    public FileProtocol(List<PFile> files) {
-        if (files.isEmpty())
-            throw new IllegalArgumentException("Not allowed to create a FileProtocol with zero files");
-        this.files = files;
-    }
-
     public FileProtocol(List<String> names, List<String> paths, HashType fileHashType, HashType pieceHashType,
                         int pieceSize) throws IOException {
         if (paths.isEmpty())
@@ -31,7 +25,6 @@ public class FileProtocol extends Protocol {
         List<PFile> files = new ArrayList<>(paths.size());
         for (int i = 0; i < paths.size(); i++)
             files.add(new PFile(names.get(i), paths.get(i), fileHashType, pieceHashType, pieceSize));
-
         this.files = files;
     }
 
