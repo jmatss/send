@@ -1,11 +1,10 @@
 package com.github.jmatss.send.protocol;
 
 import com.github.jmatss.send.Controller;
+import com.github.jmatss.send.packet.TextPacket;
 import com.github.jmatss.send.type.MessageType;
 
 import java.io.UnsupportedEncodingException;
-import java.nio.ByteBuffer;
-import java.util.Arrays;
 import java.util.Iterator;
 
 public class TextProtocol extends Protocol {
@@ -31,13 +30,9 @@ public class TextProtocol extends Protocol {
         return this.messageType;
     }
 
-    public byte[] getText() {
-        return this.text;
-    }
-
     @Override
-    public Iterable<byte[]> iter() {
-        return () -> new Iterator<byte[]>() {
+    public Iterable<TextPacket> iter() {
+        return () -> new Iterator<TextPacket>() {
             int index = 0;
 
             @Override
@@ -46,23 +41,20 @@ public class TextProtocol extends Protocol {
             }
 
             @Override
-            public byte[] next() {
+            public TextPacket next() {
                 int remainingTextSize = TextProtocol.this.text.length - this.index * TextProtocol.this.pieceSize;
                 int pieceSize = Math.min(remainingTextSize, TextProtocol.this.pieceSize);
 
                 int start = this.index * TextProtocol.this.pieceSize;
-                int end = start + pieceSize;
-
-                byte[] packet = ByteBuffer
-                        .allocate(1 + 4 + 4 + pieceSize)
-                        .put((byte) TextProtocol.this.messageType.value())
-                        .putInt(this.index)
-                        .putInt(pieceSize)
-                        .put(Arrays.copyOfRange(TextProtocol.this.text, start, end))
-                        .array();
-
-                this.index++;
-                return packet;
+                try {
+                    return new TextPacket(
+                            this.index++,
+                            new String(TextProtocol.this.text, start, pieceSize, Controller.ENCODING)
+                    );
+                } catch (UnsupportedEncodingException e) {
+                    e.printStackTrace();
+                    return null;
+                }
             }
         };
     }
