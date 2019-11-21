@@ -23,7 +23,6 @@ abstract public class Protocol<T> {
     public static final int DEFAULT_PORT = 7301;
 
     abstract public MessageType getMessageType();
-
     abstract public Iterable<T> iter();
 
     public byte[] getPublishPacket(String topic, int port) {
@@ -39,10 +38,10 @@ abstract public class Protocol<T> {
         }
 
         return ByteBuffer.allocate(1 + 1 + topicBytes.length + 1 + 4 + 4)
-                .put((byte) MessageType.PUBLISH.value())
+                .put((byte) MessageType.PUBLISH.getValue())
                 .put((byte) topicBytes.length)
                 .put(topicBytes)
-                .put((byte) getMessageType().value())
+                .put((byte) getMessageType().getValue())
                 .putInt(port)
                 .put(getId())
                 .array();
