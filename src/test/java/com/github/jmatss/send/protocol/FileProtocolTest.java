@@ -1,6 +1,7 @@
 package com.github.jmatss.send.protocol;
 
 import com.github.jmatss.send.Controller;
+import com.github.jmatss.send.packet.FilePiecePacket;
 import com.github.jmatss.send.type.HashType;
 import com.github.jmatss.send.type.MessageType;
 import org.junit.jupiter.api.Test;
@@ -21,21 +22,21 @@ public class FileProtocolTest {
 
         byte[] file_info_expected = ByteBuffer
                 .allocate(1 + 4 + t.pathBytes.length + 8 + 1 + 20)
-                .put((byte) MessageType.FILE_INFO.value())
+                .put((byte) MessageType.FILE_INFO.getValue())
                 .putInt(t.pathBytes.length)
                 .put(t.pathBytes)
                 .putLong(t.length)
-                .put((byte) t.fileHashType.value())
+                .put((byte) t.fileHashType.getValue())
                 .put(toDigest("1FE1AE26BF167A668B9EBE0BCC70291146AC7957"))
                 .array();
 
         byte[] file_piece_expected = ByteBuffer
                 .allocate(1 + 4 + 4 + t.content.length + 1)
-                .put((byte) MessageType.FILE_PIECE.value())
+                .put((byte) MessageType.FILE_PIECE.getValue())
                 .putInt(0)
                 .putInt(t.content.length)
                 .put(t.content)
-                .put((byte) t.pieceHashType.value())
+                .put((byte) t.pieceHashType.getValue())
                 .array();
 
         TestFile[] ts = {t};
@@ -51,11 +52,11 @@ public class FileProtocolTest {
 
         byte[] file_info_expected = ByteBuffer
                 .allocate(1 + 4 + t.pathBytes.length + 8 + 1 + 20)
-                .put((byte) MessageType.FILE_INFO.value())
+                .put((byte) MessageType.FILE_INFO.getValue())
                 .putInt(t.pathBytes.length)
                 .put(t.pathBytes)
                 .putLong(t.length)
-                .put((byte) t.fileHashType.value())
+                .put((byte) t.fileHashType.getValue())
                 .put(toDigest("1FE1AE26BF167A668B9EBE0BCC70291146AC7957"))
                 .array();
 
@@ -63,11 +64,11 @@ public class FileProtocolTest {
         for (int i = 0; i < 2; i++) {
             file_pieces_expected.add(ByteBuffer
                     .allocate(1 + 4 + 4 + pieceSize + 1)
-                    .put((byte) MessageType.FILE_PIECE.value())
+                    .put((byte) MessageType.FILE_PIECE.getValue())
                     .putInt(i)
                     .putInt(pieceSize)
                     .put(Arrays.copyOfRange(t.content, i * pieceSize, (i + 1) * pieceSize))
-                    .put((byte) t.pieceHashType.value())
+                    .put((byte) t.pieceHashType.getValue())
                     .array());
         }
 
@@ -112,11 +113,11 @@ public class FileProtocolTest {
             int i = 0, j = 0;
             for (PFile pFile : new FileProtocol(names, paths, fileHashType, pieceHashType, pieceSize).iter()) {
                 if (i >= file_infos_expected.size()) break;
-                assertArrayEquals(file_infos_expected.get(i), pFile.getFileInfoPacket());
+                assertArrayEquals(file_infos_expected.get(i), pFile.getFileInfoPacket().getBytes());
                 j = 0;
-                for (byte[] packet_got : pFile.packetIterator()) {
+                for (FilePiecePacket packet_got : pFile.packetIterator()) {
                     if (j >= file_pieces_expected.size()) break;
-                    assertArrayEquals(file_pieces_expected.get(j), packet_got);
+                    assertArrayEquals(file_pieces_expected.get(j), packet_got.getBytes());
                     j++;
                 }
                 i++;

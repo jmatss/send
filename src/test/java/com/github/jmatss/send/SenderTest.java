@@ -42,6 +42,10 @@ public class SenderTest {
                     receivedPacket.getOffset() + receivedPacket.getLength()
             );
 
+            ByteBuffer receivedPacketBuffer = ByteBuffer.allocate(receivedPacketData.length)
+                    .put(receivedPacketData);
+            receivedPacketBuffer.rewind();
+
             /*
                 Expected values
 
@@ -49,14 +53,10 @@ public class SenderTest {
                 Just test if port is inside the proper range 0 < port < 2^16.
              */
             int expectedPacketLength = topicBytes.length + 11;
-            byte expectedMessageType = (byte) MessageType.PUBLISH.value();
+            byte expectedMessageType = (byte) MessageType.PUBLISH.getValue();
             byte expectedTopicLength = (byte) topicBytes.length;
             String expectedTopic = topic;
-            byte expectedSubMessageType = (byte) MessageType.TEXT.value();
-
-            ByteBuffer receivedPacketBuffer = ByteBuffer.allocate(receivedPacketData.length + 11)
-                    .put(receivedPacketData);
-            receivedPacketBuffer.rewind();
+            byte expectedSubMessageType = (byte) MessageType.TEXT.getValue();
 
             /*
                 Actual values
@@ -79,8 +79,7 @@ public class SenderTest {
             assertEquals(expectedTopicLength, actualTopicLength);
             assertEquals(expectedTopic, actualTopic);
             assertEquals(expectedSubMessageType, actualSubMessageType);
-            assertTrue(actualPort > 0, "Received port was less than or equal to zero");
-            assertTrue(actualPort < (1 << 16), "Received port was greater than or equal to 2^16");
+            assertTrue(actualPort > 0 && actualPort < (1 << 16), "Received port in incorrect range: " + actualPort + " (expected 0 < port < 2^16)");
         } finally {
             controller.shutdown();
         }

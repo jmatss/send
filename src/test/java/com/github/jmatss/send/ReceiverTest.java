@@ -12,6 +12,7 @@ import java.net.ServerSocket;
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Arrays;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 
@@ -45,10 +46,10 @@ public class ReceiverTest {
 
         byte[] publish_packet = ByteBuffer
                 .allocate(1 + 1 + topicBytes.length + 1 + 4 + 4)
-                .put((byte) MessageType.PUBLISH.value())
+                .put((byte) MessageType.PUBLISH.getValue())
                 .put((byte) topicBytes.length)
                 .put(topicBytes)
-                .put((byte) subMessageType.value())
+                .put((byte) subMessageType.getValue())
                 .putInt(serverSocket.getLocalPort())
                 .put(id)
                 .array();
@@ -69,17 +70,17 @@ public class ReceiverTest {
                 fail("Received incorrect amount of bytes reading request packet. " +
                         "Expected: " + receivedPacketData.length + ", got: " + n);
 
-            /*
-                Expected values
-             */
-            byte expectedMessageType = (byte) MessageType.REQUEST.value();
-            byte expectedTopicLength = (byte) topicBytes.length;
-            String expectedTopic = topic;
-            int expectedId = ByteBuffer.allocate(4).put(id).getInt(0);
-
             ByteBuffer receivedPacketBuffer = ByteBuffer.allocate(receivedPacketData.length + 11)
                     .put(receivedPacketData);
             receivedPacketBuffer.rewind();
+
+            /*
+                Expected values
+             */
+            byte expectedMessageType = (byte) MessageType.REQUEST.getValue();
+            byte expectedTopicLength = (byte) topicBytes.length;
+            String expectedTopic = topic;
+            int expectedId = ByteBuffer.allocate(4).put(id).getInt(0);
 
             /*
                 Actual values
@@ -91,7 +92,6 @@ public class ReceiverTest {
             String actualTopic = new String(actualTopicBytes, Controller.ENCODING);
             int actualId = receivedPacketBuffer.getInt();
 
-
             /*
                 Verify that received Request packet is correct
              */
@@ -100,7 +100,7 @@ public class ReceiverTest {
             assertEquals(expectedTopic, actualTopic);
             assertEquals(expectedId, actualId);
 
-            // Send done message immediately before sending text.
+            // Send done to finish test before sending any text.
             socketWrapper.sendDone();
         } finally {
             if (socketWrapper != null)

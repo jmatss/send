@@ -1,5 +1,6 @@
 package com.github.jmatss.send.protocol;
 
+import com.github.jmatss.send.packet.TextPacket;
 import com.github.jmatss.send.type.MessageType;
 import org.junit.jupiter.api.Test;
 
@@ -14,7 +15,7 @@ public class TextProtocolTest {
             String text = "testabc123";
             byte[] packet_expected = ByteBuffer
                     .allocate(1 + 4 + 4 + text.length())
-                    .put((byte) MessageType.TEXT.value())
+                    .put((byte) MessageType.TEXT.getValue())
                     .putInt(0)
                     .putInt(text.length())
                     .put(text.getBytes())
@@ -22,12 +23,13 @@ public class TextProtocolTest {
 
             int i = 0;
             int expected_packets = 1;
-            for (byte[] packet_got : new TextProtocol(text).iter()) {
+            for (TextPacket packet_got : new TextProtocol(text).iter()) {
                 if (i > expected_packets) break;
-                assertArrayEquals(packet_got, packet_expected);
+                assertArrayEquals(packet_expected, packet_got.getBytes());
                 i++;
             }
-            assertEquals(i, expected_packets, String.format("Expected 1 packet, got %d packet(s).", i));
+
+            assertEquals(expected_packets, i, String.format("Expected 1 packet, got %d packet(s).", i));
         } catch (Exception e) {
             fail(e.getMessage());
         }
@@ -43,7 +45,7 @@ public class TextProtocolTest {
             for (int i = 0; i < packets_expected.length; i++) {
                 packets_expected[i] = ByteBuffer
                         .allocate(1 + 4 + 4 + pieceSize)
-                        .put((byte) MessageType.TEXT.value())
+                        .put((byte) MessageType.TEXT.getValue())
                         .putInt(i)
                         .putInt(pieceSize)
                         .put(text.substring(i * pieceSize, (i + 1) * pieceSize).getBytes())
@@ -52,9 +54,9 @@ public class TextProtocolTest {
 
             int i = 0;
             int expected_packets = 2;
-            for (byte[] packet_got : new TextProtocol(text, pieceSize).iter()) {
+            for (TextPacket packet_got : new TextProtocol(text, pieceSize).iter()) {
                 if (i > expected_packets) break;
-                assertArrayEquals(packet_got, packets_expected[i]);
+                assertArrayEquals(packets_expected[i], packet_got.getBytes());
                 i++;
             }
             assertEquals(i, expected_packets, String.format("Expected 1 packet, got %d packet(s).", i));
