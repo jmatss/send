@@ -18,7 +18,6 @@ import java.net.Socket;
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
@@ -78,8 +77,11 @@ public class Receiver {
     }
 
     private void receive(DatagramPacket packet) {
-        byte[] content = Arrays.copyOfRange(packet.getData(), packet.getOffset(),
-                packet.getOffset() + packet.getLength());
+        byte[] content = Arrays.copyOfRange(
+                packet.getData(),
+                packet.getOffset(),
+                packet.getOffset() + packet.getLength()
+        );
 
         SocketWrapper socketWrapper = null;
         try {
@@ -107,12 +109,12 @@ public class Receiver {
             if (this.idCache.size() > MAX_ID_CACHE_SIZE)
                 this.idCache.clear();
             this.idCache.add(ByteBuffer.wrap(pp.getId()));
+
         } catch (IOException | RuntimeException | IncorrectHashTypeException | IncorrectMessageTypeException e) {
-            // TODO: Implement better exception handling.
             e.printStackTrace();
             LOGGER.log(Level.SEVERE, e.getMessage());
-
             throw new RuntimeException(e);
+
         } finally {
             try {
                 if (socketWrapper != null)
@@ -126,13 +128,12 @@ public class Receiver {
     private void receiveFile(SocketWrapper socketWrapper)
             throws IOException, IncorrectHashTypeException, IncorrectMessageTypeException {
         while (true) {
-            if (socketWrapper.isDone())
+            if (socketWrapper.isDone() || socketWrapper.isClosed())
                 break;
-
-            FileInfoPacket fileInfoPacket = socketWrapper.receiveFileInfo();
 
             // If the file already exists on this local host, don't download it again.
             // TODO: More checking, ex see if hash is the same; if not, download with another name.
+            FileInfoPacket fileInfoPacket = socketWrapper.receiveFileInfo();
             File file = Paths.get(this.downloadPath.toString(), fileInfoPacket.getName()).toFile();
             if (!file.exists()) {
                 if (!file.getParentFile().mkdirs() && !file.getParentFile().exists())
@@ -173,6 +174,6 @@ public class Receiver {
         if (sb.length() != 0)
             LOGGER.log(Level.INFO, "Received text message:\n" + sb.toString());
         else
-            LOGGER.log(Level.INFO, "Received empty text message");
+            LOGGER.log(Level.INFO, "Received empty/no text message");
     }
 }

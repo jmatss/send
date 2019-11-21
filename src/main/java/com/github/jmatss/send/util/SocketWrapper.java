@@ -11,8 +11,6 @@ import com.github.jmatss.send.exception.IncorrectMessageTypeException;
 import java.io.*;
 import java.net.Socket;
 import java.nio.ByteBuffer;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
 
 public class SocketWrapper {
@@ -42,6 +40,11 @@ public class SocketWrapper {
         if (this.in != null) this.in.close();
         if (this.out != null) this.out.close();
         if (this.socket != null) this.socket.close();
+    }
+
+    public boolean isClosed() throws IOException {
+        nullGuard(this.socket);
+        return this.socket.isClosed();
     }
 
     public Socket getSocket() {
@@ -159,7 +162,6 @@ public class SocketWrapper {
         if (!isByte(messageType.getValue()))
             throw new IncorrectMessageTypeException("Received incorrect message type");
 
-        // TODO: Make sure length isn't a weird size (ex. extremely large).
         int nameLength = readInt();
         String name = new String(readN(nameLength), Controller.ENCODING);
         long fileLength = readLong();
