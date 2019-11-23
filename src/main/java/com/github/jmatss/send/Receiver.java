@@ -126,7 +126,7 @@ public class Receiver {
     }
 
     private void receiveFile(SocketWrapper socketWrapper)
-            throws IOException, IncorrectHashTypeException, IncorrectMessageTypeException {
+    throws IOException, IncorrectHashTypeException, IncorrectMessageTypeException {
         while (true) {
             if (socketWrapper.isDone() || socketWrapper.isClosed())
                 break;

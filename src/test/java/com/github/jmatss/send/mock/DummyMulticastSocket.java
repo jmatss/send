@@ -8,13 +8,12 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
 public class DummyMulticastSocket extends MulticastSocket {
-    // The "send" and "receive" functions will go through this.packets in order from 0 to packets.length-1.
     private final byte[][] packets;
     private final String host;
     private int index;
     private boolean isClosed;
 
-    // Stores the packets sent via the "send" function and is received via the "receiveTest" function.
+    // Stores the packets sent via the "send" function and can be received via the "receiveTest" function.
     private BlockingQueue<DatagramPacket> sentPackets;
 
     public DummyMulticastSocket(String host, byte[][] packets) throws IOException {
@@ -33,14 +32,14 @@ public class DummyMulticastSocket extends MulticastSocket {
     public void receive(DatagramPacket p) throws IOException {
         // Block indefinitely if all packets have been read.
         if (this.index == this.packets.length) {
-                while(true) {
-                    try {
-                        Thread.sleep(Long.MAX_VALUE);
-                    } catch (InterruptedException e) {
-                        return;
-                    }
+            while (true) {
+                try {
+                    Thread.sleep(Long.MAX_VALUE);
+                } catch (InterruptedException e) {
+                    return;
                 }
             }
+        }
 
         p.setData(this.packets[this.index].clone());
         p.setLength(this.packets[this.index].length);

@@ -23,6 +23,7 @@ abstract public class Protocol<T> {
     public static final int DEFAULT_PORT = 7301;
 
     abstract public MessageType getMessageType();
+
     abstract public Iterable<T> iter();
 
     public byte[] getPublishPacket(String topic, int port) {

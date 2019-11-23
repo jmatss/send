@@ -102,10 +102,10 @@ public class Controller {
      * @return the topic that can be used to access the created ScheduledFuture if one want's to cancel the
      * publishing before the timeout.
      * @throws IncorrectMessageTypeException thrown if a protocol containing a disallowed MessageType is given.
-     * @throws IOException thrown if it is unable to create a ServerSocket.
+     * @throws IOException                   thrown if it is unable to create a ServerSocket.
      */
     public String publish(Protocol protocol, String topic, long timeout, long interval)
-            throws IncorrectMessageTypeException, IOException {
+    throws IncorrectMessageTypeException, IOException {
         verifyProtocol(protocol);
         if (timeout < 0)
             throw new IllegalArgumentException("Timeout set to less than zero.");
@@ -175,13 +175,13 @@ public class Controller {
     }
 
     public void publishText(String topic, String text, long timeout, long interval)
-            throws IOException, IncorrectMessageTypeException {
+    throws IOException, IncorrectMessageTypeException {
         Protocol protocol = new TextProtocol(text);
         publish(protocol, topic, timeout, interval);
     }
 
     public void publishFile(String topic, String path, long timeout, long interval)
-            throws IOException, IncorrectMessageTypeException {
+    throws IOException, IncorrectMessageTypeException {
         File f = new File(path);
         if (!f.exists())
             throw new IOException("The path \"" + path + "\" doesn't exist.");

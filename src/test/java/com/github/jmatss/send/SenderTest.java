@@ -17,7 +17,7 @@ import static org.junit.jupiter.api.Assertions.*;
 public class SenderTest {
     @Test
     public void testSenderSendingPublishPacketCorrectly()
-            throws IOException, InterruptedException, IncorrectMessageTypeException {
+    throws IOException, InterruptedException, IncorrectMessageTypeException {
         String text = "Test_text";
         String path = "";
         String ip = Protocol.DEFAULT_MULTICAST_IPV4;
@@ -79,7 +79,10 @@ public class SenderTest {
             assertEquals(expectedTopicLength, actualTopicLength);
             assertEquals(expectedTopic, actualTopic);
             assertEquals(expectedSubMessageType, actualSubMessageType);
-            assertTrue(actualPort > 0 && actualPort < (1 << 16), "Received port in incorrect range: " + actualPort + " (expected 0 < port < 2^16)");
+            assertTrue(
+                    actualPort > 0 && actualPort < (1 << 16),
+                    "Received port in incorrect range: " + actualPort + " (expected 0 < port < 2^16)"
+            );
         } finally {
             controller.shutdown();
         }

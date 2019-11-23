@@ -105,7 +105,6 @@ public class FileProtocolTest {
             paths.add(t.path);
         }
 
-        // TODO: do this better
         HashType fileHashType = ts[0].fileHashType;
         HashType pieceHashType = ts[0].pieceHashType;
 
@@ -185,7 +184,7 @@ public class FileProtocolTest {
                 fail(String.format("Unable to load test file %s: %s", this.path, e.getMessage()));
             }
 
-            assertNotEquals(0, this.length, "Read 0 bytes from test file.");
+            assertNotEquals(0, this.length, "Test file contains 0 bytes.");
         }
     }
 }

@@ -27,7 +27,7 @@ public class PFile {
     private int pieceSize;
 
     PFile(String name, String path, HashType fileHashType, HashType pieceHashType, int pieceSize)
-            throws IOException {
+    throws IOException {
         if (!new File(path).exists())
             throw new FileNotFoundException("Unable to find file " + path);
         else if (fileHashType == HashType.NONE)
