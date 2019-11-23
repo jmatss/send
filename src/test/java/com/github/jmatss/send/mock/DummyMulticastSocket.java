@@ -66,4 +66,14 @@ public class DummyMulticastSocket extends MulticastSocket {
     public synchronized boolean isClosed() {
         return this.isClosed;
     }
+
+    @Override
+    public void joinGroup(InetAddress address) {
+        return; // Do nothing, just prevent "super" func to run.
+    }
+
+    @Override
+    public void leaveGroup(InetAddress address) {
+        return; // Do nothing, just prevent "super" func to run.
+    }
 }
