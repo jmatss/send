@@ -12,7 +12,7 @@ public enum HashType {
     SHA1(1, "SHA-1", 20),
     MD5(2, "MD5", 16);
 
-    private static final Map<Integer, HashType> lookup = new HashMap<>();
+    private static Map<Integer, HashType> lookup;
     private final int i;
     private final String hash;
     private final int size;
@@ -21,6 +21,12 @@ public enum HashType {
         this.i = i;
         this.hash = hash;
         this.size = size;
+    }
+
+    static {
+        HashType.lookup = new HashMap<>();
+        for (HashType hashType : HashType.values())
+            HashType.lookup.put(hashType.i, hashType);
     }
 
     public int getValue() {
@@ -33,12 +39,6 @@ public enum HashType {
 
     public String toString() {
         return this.hash;
-    }
-
-    static {
-        for (HashType hashType : HashType.values()) {
-            HashType.lookup.put(hashType.i, hashType);
-        }
     }
 
     public static HashType valueOf(int key) throws IncorrectHashTypeException {
