@@ -63,10 +63,6 @@ public class SocketWrapper {
         return readByte() == b;
     }
 
-    private boolean isByte(int b) throws IOException {
-        return readByte() == b;
-    }
-
     private boolean isByteUnreadIfIncorrect(byte b) throws IOException {
         // Read and remove the first byte from the input stream.
         // If the read byte isn't equal "b", put it back into the stream.
@@ -85,11 +81,11 @@ public class SocketWrapper {
 
     // TODO: Some sort of check that it is either a yes or no packet, throw exception otherwise
     public boolean isYes() throws IOException {
-        return isByte(MessageType.YES.getValue());
+        return isByte((byte) MessageType.YES.getValue());
     }
 
     public boolean isNo() throws IOException {
-        return isByte(MessageType.NO.getValue());
+        return isByte((byte) MessageType.NO.getValue());
     }
 
     public void sendByte(byte b) throws IOException {
@@ -115,9 +111,9 @@ public class SocketWrapper {
     }
 
     public String receiveText(int localIndex)
-            throws IOException, IncorrectMessageTypeException {
+    throws IOException, IncorrectMessageTypeException {
         MessageType messageType = MessageType.TEXT;
-        if (!isByte(messageType.getValue()))
+        if (!isByte((byte) messageType.getValue()))
             throw new IncorrectMessageTypeException("Received incorrect message type");
 
         int remoteIndex = readInt();
@@ -133,10 +129,9 @@ public class SocketWrapper {
         return new String(readN(textLength), Controller.ENCODING);
     }
 
-    public RequestPacket receiveRequest()
-            throws IOException, IncorrectMessageTypeException {
+    public RequestPacket receiveRequest() throws IOException, IncorrectMessageTypeException {
         MessageType messageType = MessageType.REQUEST;
-        if (!isByte(messageType.getValue()))
+        if (!isByte((byte) messageType.getValue()))
             throw new IncorrectMessageTypeException("Received incorrect message type");
 
         int topicLength = readByte();
@@ -157,9 +152,9 @@ public class SocketWrapper {
      * @throws IncorrectHashTypeException    if the file info packet contains an invalid HashType.
      */
     public FileInfoPacket receiveFileInfo()
-            throws IOException, IncorrectMessageTypeException, IncorrectHashTypeException {
+    throws IOException, IncorrectMessageTypeException, IncorrectHashTypeException {
         MessageType messageType = MessageType.FILE_INFO;
-        if (!isByte(messageType.getValue()))
+        if (!isByte((byte) messageType.getValue()))
             throw new IncorrectMessageTypeException("Received incorrect message type");
 
         int nameLength = readInt();
@@ -172,9 +167,9 @@ public class SocketWrapper {
     }
 
     public PublishPacket receivePublish()
-            throws IOException, IncorrectMessageTypeException {
+    throws IOException, IncorrectMessageTypeException {
         MessageType messageType = MessageType.PUBLISH;
-        if (!isByte(messageType.getValue()))
+        if (!isByte((byte) messageType.getValue()))
             throw new IncorrectMessageTypeException("Received incorrect message type");
 
         int topicLength = readByte();
@@ -198,9 +193,9 @@ public class SocketWrapper {
      * @throws IncorrectHashTypeException    if the file info packet contains an invalid HashType.
      */
     public FilePiecePacket receiveFilePiece(int localIndex)
-            throws IOException, IncorrectMessageTypeException, IncorrectHashTypeException {
+    throws IOException, IncorrectMessageTypeException, IncorrectHashTypeException {
         MessageType messageType = MessageType.FILE_PIECE;
-        if (!isByte(messageType.getValue()))
+        if (!isByte((byte) messageType.getValue()))
             throw new IncorrectMessageTypeException("Received incorrect message type");
 
         int remoteIndex = readInt();
