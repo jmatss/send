@@ -1,5 +1,6 @@
 package com.github.jmatss.send.util;
 
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
@@ -30,5 +31,10 @@ public class LockableHashMap<K, V> extends HashMap<K, V> implements AutoCloseabl
     @Override
     public void close() {
         this.lock.unlock();
+    }
+
+    @Override
+    public Collection<V> values() {
+        return super.values();
     }
 }

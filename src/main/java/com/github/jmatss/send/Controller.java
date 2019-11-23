@@ -68,9 +68,12 @@ public class Controller {
     }
 
     public List<Runnable> shutdown() throws IOException {
-        this.socket.leaveGroup(this.ip);
-        this.socket.close();
-        return this.executor.shutdownNow();
+        try (LockableHashMap l = this.publishedTopics.lock()) {
+            this.socket.leaveGroup(this.ip);
+            this.socket.close();
+            this.publishedTopics.values().forEach(ClosableWrapper::close);
+            return this.executor.shutdownNow();
+        }
     }
 
     public List<String> list() {
