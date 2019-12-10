@@ -55,8 +55,8 @@ Communication:
 
     *** FILE COM ***
     A                   B
-    Publish ->          (<- Subscribe)
-    (Publish ->)        <- Subscribe
+    Publish ->          (Subscribe)
+    (Publish ->)        Subscribe
                         <- Request
     File_info ->
                         <- Yes
@@ -70,8 +70,8 @@ Communication:
 
     *** TEXT COM ***
     A                   B
-    Publish ->          (<- Subscribe)
-    (Publish ->)        <- Subscribe
+    Publish ->          (Subscribe)
+    (Publish ->)        Subscribe
                         <- Request
     Text ->
     ...
