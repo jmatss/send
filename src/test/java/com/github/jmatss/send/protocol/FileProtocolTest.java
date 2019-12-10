@@ -8,6 +8,8 @@ import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.nio.ByteBuffer;
 import java.util.*;
 
@@ -168,7 +170,13 @@ public class FileProtocolTest {
 
         TestFile(String name, String path, HashType fileHashType, HashType pieceHashType) {
             this.name = name;
-            this.path = Objects.requireNonNull(getClass().getClassLoader().getResource(path)).getFile();
+            try {   // Convert URL escaped characters to the correct characters (ex. %20 to "space")
+                this.path = Objects.requireNonNull(getClass().getClassLoader().getResource(path)).getFile();
+                var urlDecodedPath = new URI(this.path);
+                this.path = urlDecodedPath.getPath();
+            } catch (URISyntaxException e) {
+                throw new RuntimeException(e);
+            }
             this.fileHashType = fileHashType;
             this.pieceHashType = pieceHashType;
 
